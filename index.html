@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cipher — ephemeral encrypted chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<style>
+  :root{
+    --bg: #0a0a0f;
+    --surface: #131319;
+    --surface-2: #1a1a22;
+    --border: #26262f;
+    --text: #ededf2;
+    --muted: #85859a;
+    --accent: #5eead4;
+    --accent-dim: #2b3f3c;
+    --violet: #a78bfa;
+    --danger: #f87171;
+    --radius: 16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(94,234,212,0.06), transparent 40%),
+      radial-gradient(circle at 80% 85%, rgba(167,139,250,0.06), transparent 40%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:24px;
+  }
+  .app{ width:100%; max-width:460px; }
+
+  .brand{
+    display:flex; align-items:center; gap:10px;
+    justify-content:center;
+    margin-bottom:22px;
+    color:var(--muted);
+    font-family:'Space Grotesk',sans-serif;
+    letter-spacing:0.02em;
+  }
+  .brand .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 10px var(--accent);
+    animation:pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{ opacity:1; transform:scale(1); }
+    50%{ opacity:0.4; transform:scale(0.7); }
+  }
+  .brand b{ color:var(--text); font-weight:600; }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:28px;
+    box-shadow: 0 20px 60px -20px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.02) inset;
+  }
+
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:22px;
+    font-weight:600;
+    margin:0 0 6px;
+  }
+  .sub{ color:var(--muted); font-size:13.5px; margin:0 0 24px; line-height:1.5; }
+
+  .tabs{ display:flex; gap:6px; background:var(--surface-2); border:1px solid var(--border); border-radius:11px; padding:4px; margin-bottom:22px; }
+  .tab{
+    flex:1; text-align:center; padding:9px 0; border-radius:8px;
+    font-size:13.5px; font-weight:500; color:var(--muted);
+    cursor:pointer; transition:all .15s ease; user-select:none;
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .tab.active{ background:var(--surface); color:var(--text); box-shadow:0 1px 0 rgba(255,255,255,0.03) inset; }
+
+  label{ display:block; font-size:12px; color:var(--muted); margin:0 0 7px; font-weight:500; letter-spacing:0.02em; text-transform:uppercase; }
+  .field{ margin-bottom:16px; }
+  .row{ display:flex; gap:10px; }
+  .row .field{ flex:1; }
+
+  input[type=text], input[type=password]{
+    width:100%; background:var(--surface-2); border:1px solid var(--border);
+    color:var(--text); padding:12px 14px; border-radius:10px;
+    font-family:'Inter',sans-serif; font-size:14.5px; outline:none;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  input.mono{ font-family:'IBM Plex Mono',monospace; letter-spacing:0.08em; }
+  input:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(94,234,212,0.12); }
+  input::placeholder{ color:#4d4d5c; }
+
+  .inline-btn{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--muted);
+    border-radius:8px; padding:0 12px; font-size:12px; cursor:pointer; white-space:nowrap;
+    font-family:'Space Grotesk',sans-serif; font-weight:500;
+  }
+  .inline-btn:hover{ color:var(--text); border-color:#3a3a46; }
+
+  .btn{
+    width:100%; padding:13px 0; border-radius:10px; border:none;
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14.5px;
+    cursor:pointer; transition:transform .12s ease, opacity .12s ease;
+  }
+  .btn-primary{ background:var(--accent); color:#052b26; }
+  .btn-primary:hover{ opacity:0.92; }
+  .btn-primary:active{ transform:scale(0.985); }
+  .btn-primary:disabled{ opacity:0.4; cursor:not-allowed; }
+  .btn-ghost{ background:transparent; color:var(--muted); border:1px solid var(--border); margin-top:10px; }
+  .btn-ghost:hover{ color:var(--text); }
+
+  .error{ color:var(--danger); font-size:13px; margin:0 0 14px; display:none; }
+  .hint{ color:var(--muted); font-size:12px; margin-top:8px; line-height:1.5; }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  /* waiting / room-created screen */
+  .code-display{
+    background:var(--surface-2); border:1px dashed var(--border); border-radius:12px;
+    padding:18px; text-align:center; margin-bottom:14px;
+  }
+  .code-display .label{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px; }
+  .code-chars{ display:flex; justify-content:center; gap:6px; margin-bottom:4px; }
+  .code-chars span{
+    font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600;
+    color:var(--accent); background:var(--surface); border:1px solid var(--border);
+    width:34px; height:42px; display:flex; align-items:center; justify-content:center;
+    border-radius:8px;
+  }
+  .copy-row{ display:flex; justify-content:center; gap:8px; margin-top:10px; }
+
+  .status-line{ display:flex; align-items:center; gap:8px; justify-content:center; color:var(--muted); font-size:13px; margin:18px 0 6px; }
+  .spinner{ width:12px;height:12px;border-radius:50%; border:2px solid var(--border); border-top-color:var(--accent); animation:spin 0.8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* chat screen */
+  .chat-wrap{ display:none; width:100%; max-width:520px; height:88vh; max-height:720px; flex-direction:column; }
+  .chat-wrap.active{ display:flex; }
+  .chat-header{
+    background:var(--surface); border:1px solid var(--border); border-radius:16px 16px 0 0;
+    padding:14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:none;
+  }
+  .chat-header .room-info{ display:flex; align-items:center; gap:10px; }
+  .chat-header .room-code{ font-family:'IBM Plex Mono',monospace; font-weight:600; letter-spacing:0.06em; color:var(--accent); font-size:14px; cursor:pointer; }
+  .badge{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); background:var(--surface-2); border:1px solid var(--border); padding:5px 9px; border-radius:20px; }
+  .badge svg{ width:11px; height:11px; }
+  .header-right{ display:flex; align-items:center; gap:8px; }
+  .icon-btn{ background:var(--surface-2); border:1px solid var(--border); color:var(--muted); border-radius:8px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .icon-btn:hover{ color:var(--danger); border-color:var(--danger); }
+
+  .messages{
+    flex:1; overflow-y:auto; background:var(--bg); border-left:1px solid var(--border); border-right:1px solid var(--border);
+    padding:18px; display:flex; flex-direction:column; gap:10px;
+  }
+  .messages::-webkit-scrollbar{ width:6px; }
+  .messages::-webkit-scrollbar-thumb{ background:var(--border); border-radius:3px; }
+
+  .msg{ max-width:78%; padding:9px 13px; border-radius:14px; font-size:14px; line-height:1.45; word-wrap:break-word; }
+  .msg.me{ align-self:flex-end; background:var(--accent-dim); color:#d3fff6; border-bottom-right-radius:4px; }
+  .msg.them{ align-self:flex-start; background:var(--surface-2); border:1px solid var(--border); border-bottom-left-radius:4px; }
+  .msg .who{ font-size:11px; color:var(--violet); font-weight:600; margin-bottom:3px; font-family:'Space Grotesk',sans-serif; }
+  .msg .time{ font-size:10px; color:var(--muted); margin-top:3px; }
+  .sys{ align-self:center; font-size:12px; color:var(--muted); background:var(--surface-2); padding:5px 12px; border-radius:20px; }
+
+  .composer{
+    background:var(--surface); border:1px solid var(--border); border-radius:0 0 16px 16px;
+    padding:12px; display:flex; gap:10px;
+  }
+  .composer input{ flex:1; }
+  .send-btn{
+    width:44px; height:44px; flex-shrink:0; border-radius:10px; border:none; background:var(--accent);
+    color:#052b26; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .send-btn:hover{ opacity:0.9; }
+  .send-btn:disabled{ opacity:0.35; cursor:not-allowed; }
+
+  .footnote{ text-align:center; color:#4d4d5c; font-size:11px; margin-top:16px; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="app" id="landingApp">
+  <div class="brand"><span class="dot"></span>CIPHER <b>· ephemeral chat</b></div>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" data-tab="start">Start a room</div>
+      <div class="tab" data-tab="join">Join a room</div>
+    </div>
+
+    <!-- START -->
+    <div class="panel active" id="panel-start">
+      <h1>Start a session</h1>
+      <p class="sub">Creates a private room. Nothing is ever saved — the room disappears the moment you close this tab.</p>
+
+      <div class="field">
+        <label>Your name</label>
+        <input type="text" id="startName" placeholder="e.g. Yashas" maxlength="24">
+      </div>
+      <div class="field">
+        <label>Security code</label>
+        <div class="row">
+          <input type="text" class="mono" id="startCode" placeholder="Set a passcode" maxlength="20">
+          <button class="inline-btn" id="genCode">Generate</button>
+        </div>
+        <p class="hint">Share this code with people separately from the room code (e.g. in person or a different app) — that's what makes it end‑to‑end encrypted.</p>
+      </div>
+      <p class="error" id="startError"></p>
+      <button class="btn btn-primary" id="startBtn">Create room</button>
+    </div>
+
+    <!-- JOIN -->
+    <div class="panel" id="panel-join">
+      <h1>Join a session</h1>
+      <p class="sub">Enter the room code and security code the host shared with you.</p>
+
+      <div class="field">
+        <label>Your name</label>
+        <input type="text" id="joinName" placeholder="e.g. Priya" maxlength="24">
+      </div>
+      <div class="field">
+        <label>Room code</label>
+        <input type="text" class="mono" id="joinRoom" placeholder="XXXXXX" maxlength="6">
+      </div>
+      <div class="field">
+        <label>Security code</label>
+        <input type="text" class="mono" id="joinCode" placeholder="Passcode">
+      </div>
+      <p class="error" id="joinError"></p>
+      <button class="btn btn-primary" id="joinBtn">Join room</button>
+    </div>
+
+    <!-- WAITING (host, after create) -->
+    <div class="panel" id="panel-waiting">
+      <h1>Room is live</h1>
+      <p class="sub">Share both codes with the people you want in this chat. Keep this tab open — the room stays alive only as long as you're here.</p>
+      <div class="code-display">
+        <div class="label">Room code</div>
+        <div class="code-chars" id="roomCodeChars"></div>
+        <div class="copy-row">
+          <button class="inline-btn" id="copyRoom">Copy room code</button>
+          <button class="inline-btn" id="copyCode">Copy security code</button>
+        </div>
+      </div>
+      <div class="status-line"><span class="spinner"></span> waiting for people to join…</div>
+    </div>
+  </div>
+  <div class="footnote">No accounts. No database. Messages exist only in your browsers, in memory, encrypted end‑to‑end.</div>
+</div>
+
+<div class="chat-wrap" id="chatWrap">
+  <div class="chat-header">
+    <div class="room-info">
+      <span class="badge" title="AES-256-GCM, key derived from your security code — never sent over the network">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+        E2E encrypted
+      </span>
+      <span class="room-code" id="chatRoomCode" title="Click to copy">room · ····</span>
+    </div>
+    <div class="header-right">
+      <span class="badge" id="peerCount">1 online</span>
+      <div class="icon-btn" id="leaveBtn" title="Leave room">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="messages" id="messages"></div>
+  <div class="composer">
+    <input type="text" id="msgInput" placeholder="Type a message…" maxlength="1000">
+    <button class="send-btn" id="sendBtn">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+/* ---------------- crypto ---------------- */
+async function deriveKey(roomCode, securityCode){
+  const enc = new TextEncoder();
+  const saltBuf = await crypto.subtle.digest('SHA-256', enc.encode('cipher-salt-' + roomCode));
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(securityCode), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt: saltBuf, iterations: 120000, hash:'SHA-256' },
+    keyMaterial,
+    { name:'AES-GCM', length:256 },
+    false,
+    ['encrypt','decrypt']
+  );
+}
+function buf2b64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+function b642buf(b64){ return Uint8Array.from(atob(b64), c=>c.charCodeAt(0)); }
+
+async function encryptObj(key, obj){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new TextEncoder().encode(JSON.stringify(obj));
+  const cipher = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, data);
+  return JSON.stringify({ iv: buf2b64(iv), d: buf2b64(cipher) });
+}
+async function decryptObj(key, payload){
+  const parsed = JSON.parse(payload);
+  const iv = b642buf(parsed.iv);
+  const cipher = b642buf(parsed.d);
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, cipher);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+/* ---------------- state ---------------- */
+const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function randomCode(len){
+  let s=''; for(let i=0;i<len;i++) s += CHARS[Math.floor(Math.random()*CHARS.length)];
+  return s;
+}
+
+let state = {
+  isHost:false, myId:'', myName:'', roomCode:'', key:null,
+  peer:null, hostConn:null, conns:new Map(), // host only: peerId -> {conn,name}
+  members:new Map() // id -> name (everyone keeps a roster)
+};
+
+/* ICE config: STUN handles most connections; TURN relays the ones that can't
+   connect directly (corporate/hotel wifi, some mobile carriers, symmetric NAT).
+   This uses Open Relay's free public TURN servers — fine for personal/small-group
+   use. For heavier use, swap in your own TURN credentials (e.g. from metered.ca,
+   Twilio, or Cloudflare Calls). */
+const ICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    { urls: 'turn:global.relay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:global.relay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:global.relay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+  ]
+};
+
+/* ---------------- UI wiring: tabs ---------------- */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+  });
+});
+
+document.getElementById('genCode').addEventListener('click', ()=>{
+  document.getElementById('startCode').value = randomCode(8);
+});
+
+/* ---------------- scramble/decode animation for room code ---------------- */
+function renderScrambledCode(finalCode){
+  const wrap = document.getElementById('roomCodeChars');
+  wrap.innerHTML = '';
+  const spans = [...finalCode].map(()=>{
+    const s = document.createElement('span'); s.textContent = CHARS[Math.floor(Math.random()*CHARS.length)];
+    wrap.appendChild(s); return s;
+  });
+  let ticks = 0;
+  const iv = setInterval(()=>{
+    ticks++;
+    spans.forEach((s,i)=>{
+      if(ticks > i*2 + 3){ s.textContent = finalCode[i]; }
+      else { s.textContent = CHARS[Math.floor(Math.random()*CHARS.length)]; }
+    });
+    if(ticks > finalCode.length*2 + 4) clearInterval(iv);
+  }, 45);
+}
+
+/* ---------------- error helpers ---------------- */
+function showError(id, msg){ const e = document.getElementById(id); e.textContent = msg; e.style.display = msg ? 'block':'none'; }
+
+/* ---------------- chat rendering ---------------- */
+function addMessage({who, text, mine, system, ts}){
+  const box = document.getElementById('messages');
+  const el = document.createElement('div');
+  if(system){
+    el.className = 'sys'; el.textContent = text;
+  } else {
+    el.className = 'msg ' + (mine ? 'me':'them');
+    const time = ts ? new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+    el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) + `<div>${escapeHtml(text)}</div>` + (time?`<div class="time">${time}</div>`:'');
+  }
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+function updatePeerCount(){
+  document.getElementById('peerCount').textContent = state.members.size + ' online';
+}
+
+function enterChatUI(){
+  document.getElementById('landingApp').style.display = 'none';
+  document.getElementById('chatWrap').classList.add('active');
+  document.getElementById('chatRoomCode').textContent = 'room · ' + state.roomCode;
+  updatePeerCount();
+}
+
+/* copy helpers */
+document.getElementById('copyRoom').addEventListener('click', ()=>{
+  navigator.clipboard.writeText(state.roomCode);
+  toastBtn('copyRoom','Copied!');
+});
+document.getElementById('copyCode').addEventListener('click', ()=>{
+  navigator.clipboard.writeText(document.getElementById('startCode').value);
+  toastBtn('copyCode','Copied!');
+});
+document.getElementById('chatRoomCode').addEventListener('click', ()=>{
+  navigator.clipboard.writeText(state.roomCode);
+});
+function toastBtn(id, txt){
+  const b = document.getElementById(id); const orig = b.textContent;
+  b.textContent = txt; setTimeout(()=>b.textContent=orig, 1200);
+}
+
+/* ---------------- roster broadcast (host only) ---------------- */
+async function broadcastRoster(){
+  if(!state.isHost) return;
+  const members = [...state.members.entries()].map(([id,name])=>({id,name}));
+  const payload = await encryptObj(state.key, {type:'roster', members});
+  state.conns.forEach(({conn})=>{ if(conn.open) conn.send(payload); });
+  updatePeerCount();
+}
+
+async function relayToOthers(exceptId, payload){
+  state.conns.forEach(({conn}, id)=>{ if(id !== exceptId && conn.open) conn.send(payload); });
+}
+
+/* ---------------- handling incoming data ---------------- */
+async function handleIncoming(raw, fromConnId){
+  let obj;
+  try{ obj = await decryptObj(state.key, raw); }
+  catch(e){
+    // wrong key — reject silently (host: drop this peer)
+    if(state.isHost && fromConnId){
+      const entry = state.conns.get(fromConnId);
+      if(entry && !state.members.has(fromConnId)){ entry.conn.close(); }
+    }
+    return;
+  }
+
+  if(obj.type === 'join' && state.isHost){
+    state.members.set(fromConnId, obj.name);
+    addMessage({system:true, text: obj.name + ' joined the room'});
+    await broadcastRoster();
+    // relay a system join note to everyone else too via chat-style message not needed, roster covers it
+  }
+  else if(obj.type === 'chat'){
+    addMessage({who: obj.name, text: obj.text, mine:false, ts: obj.ts});
+    if(state.isHost){
+      await relayToOthers(fromConnId, raw); // blind relay of ciphertext to everyone else
+    }
+  }
+  else if(obj.type === 'roster' && !state.isHost){
+    state.members = new Map(obj.members.map(m=>[m.id,m.name]));
+    updatePeerCount();
+  }
+  else if(obj.type === 'system' && !state.isHost){
+    addMessage({system:true, text: obj.text});
+  }
+}
+
+/* ---------------- HOST: create room ---------------- */
+document.getElementById('startBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('startName').value.trim();
+  const code = document.getElementById('startCode').value.trim();
+  showError('startError','');
+  if(!name){ showError('startError','Enter your name.'); return; }
+  if(!code || code.length < 4){ showError('startError','Security code must be at least 4 characters.'); return; }
+
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+
+  const roomCode = randomCode(6);
+  const peerId = 'cipher-' + roomCode.toLowerCase();
+
+  state.isHost = true;
+  state.myName = name;
+  state.roomCode = roomCode;
+  state.key = await deriveKey(roomCode, code);
+  state.members.set('host', name);
+
+  const peer = new Peer(peerId, { debug: 0, config: ICE_CONFIG });
+  state.peer = peer;
+
+  peer.on('open', (id)=>{
+    state.myId = id;
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    document.getElementById('panel-waiting').classList.add('active');
+    renderScrambledCode(roomCode);
+    btn.disabled = false; btn.textContent = 'Create room';
+  });
+
+  peer.on('connection', (conn)=>{
+    const connId = conn.peer;
+    state.conns.set(connId, {conn, name:null});
+    conn.on('data', (raw)=> handleIncoming(raw, connId));
+    conn.on('close', ()=>{
+      const wasMember = state.members.has(connId);
+      const memberName = state.members.get(connId);
+      state.conns.delete(connId);
+      state.members.delete(connId);
+      if(wasMember){ addMessage({system:true, text:(memberName||'someone') + ' left the room'}); broadcastRoster(); }
+    });
+    // first successful chat entry: transition host UI on first join
+    if(document.getElementById('chatWrap').classList.contains('active') === false){
+      enterChatUI();
+    }
+  });
+
+  peer.on('error', (err)=>{
+    console.error(err);
+    showError('startError', 'Could not create room: ' + err.type);
+    btn.disabled = false; btn.textContent = 'Create room';
+  });
+});
+
+/* ---------------- JOINER: join room ---------------- */
+document.getElementById('joinBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('joinName').value.trim();
+  const roomCode = document.getElementById('joinRoom').value.trim().toUpperCase();
+  const code = document.getElementById('joinCode').value.trim();
+  showError('joinError','');
+  if(!name){ showError('joinError','Enter your name.'); return; }
+  if(roomCode.length !== 6){ showError('joinError','Room code should be 6 characters.'); return; }
+  if(!code){ showError('joinError','Enter the security code.'); return; }
+
+  const btn = document.getElementById('joinBtn');
+  btn.disabled = true; btn.textContent = 'Connecting…';
+
+  state.isHost = false;
+  state.myName = name;
+  state.roomCode = roomCode;
+  state.key = await deriveKey(roomCode, code);
+
+  const peer = new Peer(undefined, { debug: 0, config: ICE_CONFIG });
+  state.peer = peer;
+
+  const failTimer = setTimeout(()=>{
+    showError('joinError','Could not connect. Check the room code and security code, and make sure the host still has the room open.');
+    btn.disabled = false; btn.textContent = 'Join room';
+    try{ peer.destroy(); }catch(e){}
+  }, 15000);
+
+  peer.on('open', async (id)=>{
+    state.myId = id;
+    const hostId = 'cipher-' + roomCode.toLowerCase();
+    const conn = peer.connect(hostId, { reliable:true });
+    state.hostConn = conn;
+
+    conn.on('open', async ()=>{
+      clearTimeout(failTimer);
+      const payload = await encryptObj(state.key, {type:'join', name});
+      conn.send(payload);
+      state.members.set(state.myId, name);
+      state.members.set('host', '(host)');
+      enterChatUI();
+      addMessage({system:true, text:'You joined the room'});
+      btn.disabled = false; btn.textContent = 'Join room';
+    });
+
+    conn.on('data', (raw)=> handleIncoming(raw, null));
+
+    conn.on('close', ()=>{
+      addMessage({system:true, text:'Disconnected from the host. The room has ended.'});
+      document.getElementById('sendBtn').disabled = true;
+      document.getElementById('msgInput').disabled = true;
+    });
+
+    conn.on('error', (err)=>{
+      clearTimeout(failTimer);
+      showError('joinError','Connection error: ' + err);
+      btn.disabled = false; btn.textContent = 'Join room';
+    });
+  });
+
+  peer.on('error', (err)=>{
+    clearTimeout(failTimer);
+    console.error(err);
+    showError('joinError','Could not connect: ' + err.type + '. The room code may be wrong or the host has closed it.');
+    btn.disabled = false; btn.textContent = 'Join room';
+  });
+});
+
+/* ---------------- sending messages ---------------- */
+async function sendMessage(){
+  const input = document.getElementById('msgInput');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  const ts = Date.now();
+  addMessage({who:state.myName, text, mine:true, ts});
+
+  const payload = await encryptObj(state.key, {type:'chat', name: state.myName, text, ts});
+
+  if(state.isHost){
+    state.conns.forEach(({conn})=>{ if(conn.open) conn.send(payload); });
+  } else if(state.hostConn && state.hostConn.open){
+    state.hostConn.send(payload);
+  }
+}
+document.getElementById('sendBtn').addEventListener('click', sendMessage);
+document.getElementById('msgInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendMessage(); });
+
+/* ---------------- leaving ---------------- */
+document.getElementById('leaveBtn').addEventListener('click', ()=>{
+  if(confirm('Leave this room? Nothing will be saved.')){
+    try{ state.peer && state.peer.destroy(); }catch(e){}
+    location.reload();
+  }
+});
+window.addEventListener('beforeunload', ()=>{
+  try{ state.peer && state.peer.destroy(); }catch(e){}
+});
+</script>
+</body>
+</html>

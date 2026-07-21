@@ -67,6 +67,51 @@
     --bubble-them-bg:#232c3a; --bubble-them-text:#e8edf3; --bubble-them-border:#2c3646;
     --danger:#f2777a; --online:#5fd68a;
   }
+  html[data-theme="mint"]{
+    --bg:#eefaf6; --bg-decor-1:rgba(47,184,148,0.12); --bg-decor-2:rgba(94,200,212,0.08);
+    --surface:#ffffff; --surface-2:#e6f7f1; --border:#d3ede4;
+    --text:#12332a; --muted:#5f8a7c;
+    --accent:#2fb894; --accent-soft:#d7f3ea; --on-accent:#ffffff;
+    --bubble-me-bg:#2fb894; --bubble-me-text:#ffffff;
+    --bubble-them-bg:#ffffff; --bubble-them-text:#12332a; --bubble-them-border:#d3ede4;
+    --danger:#d9534f; --online:#3fae5c;
+  }
+  html[data-theme="charcoal"]{
+    --bg:#15171c; --bg-decor-1:rgba(111,211,199,0.08); --bg-decor-2:rgba(93,179,240,0.06);
+    --surface:#1d2026; --surface-2:#242830; --border:#2e333c;
+    --text:#e7e9ec; --muted:#8b93a0;
+    --accent:#6fd3c7; --accent-soft:#1d3936; --on-accent:#0b201d;
+    --bubble-me-bg:#1f6f63; --bubble-me-text:#eafff9;
+    --bubble-them-bg:#242830; --bubble-them-text:#e7e9ec; --bubble-them-border:#2e333c;
+    --danger:#f2777a; --online:#5fd68a;
+  }
+  html[data-theme="plum"]{
+    --bg:#1a1420; --bg-decor-1:rgba(178,111,217,0.12); --bg-decor-2:rgba(232,97,140,0.08);
+    --surface:#241c2c; --surface-2:#2c2236; --border:#392c46;
+    --text:#f0e8f7; --muted:#a48fb8;
+    --accent:#b26fd9; --accent-soft:#3a2b4a; --on-accent:#241129;
+    --bubble-me-bg:#6a3f8a; --bubble-me-text:#f6ecff;
+    --bubble-them-bg:#2c2236; --bubble-them-text:#f0e8f7; --bubble-them-border:#392c46;
+    --danger:#f2777a; --online:#5fd68a;
+  }
+  html[data-theme="forest-dark"]{
+    --bg:#111a14; --bg-decor-1:rgba(95,214,138,0.12); --bg-decor-2:rgba(94,200,212,0.06);
+    --surface:#182419; --surface-2:#1f2e21; --border:#2a3d2c;
+    --text:#e6f0e6; --muted:#8aa88d;
+    --accent:#5fd68a; --accent-soft:#1f3a26; --on-accent:#0a2010;
+    --bubble-me-bg:#2e6b40; --bubble-me-text:#eafff0;
+    --bubble-them-bg:#1f2e21; --bubble-them-text:#e6f0e6; --bubble-them-border:#2a3d2c;
+    --danger:#f2777a; --online:#5fd68a;
+  }
+  html[data-theme="crimson-dark"]{
+    --bg:#1c1414; --bg-decor-1:rgba(224,87,92,0.12); --bg-decor-2:rgba(250,193,110,0.08);
+    --surface:#241a1a; --surface-2:#2c2020; --border:#3d2c2c;
+    --text:#f5e8e6; --muted:#b08f8a;
+    --accent:#e0575c; --accent-soft:#3d2222; --on-accent:#2b0f10;
+    --bubble-me-bg:#8a3236; --bubble-me-text:#ffece9;
+    --bubble-them-bg:#2c2020; --bubble-them-text:#f5e8e6; --bubble-them-border:#3d2c2c;
+    --danger:#f2777a; --online:#5fd68a;
+  }
 
   /* chat wallpaper patterns, also per-user/local */
   html[data-pattern="dots"] .messages{ background-image:radial-gradient(var(--border) 1px, transparent 1px); background-size:18px 18px; }
@@ -192,7 +237,7 @@
   .sys{ align-self:center; font-size:12px; color:var(--muted); background:var(--surface-2); padding:5px 12px; border-radius:20px; text-align:center; }
   .msg.pressing{ transform:scale(0.97); transition:transform .15s ease; }
   .msg.armed{ transform:scale(0.97); box-shadow:0 10px 26px -6px rgba(20,30,50,0.22); transition:transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease; cursor:grab; }
-  .msg.dragging{ cursor:grabbing; z-index:60; box-shadow:0 18px 40px -10px rgba(20,30,50,0.4), 0 2px 0 rgba(255,255,255,0.5) inset; }
+  .msg.dragging{ cursor:grabbing; z-index:60; box-shadow:0 18px 40px -10px rgba(20,30,50,0.4), 0 2px 0 rgba(255,255,255,0.5) inset; transition:none !important; touch-action:none; }
 
   /* ---------- typing indicator ---------- */
   .typing-row{ align-self:flex-start; display:flex; align-items:center; gap:5px; background:var(--bubble-them-bg); border:1px solid var(--bubble-them-border); border-radius:16px; border-bottom-left-radius:5px; padding:11px 15px; animation:typingIn .28s cubic-bezier(.2,.8,.2,1); }
@@ -209,8 +254,11 @@
   .msg.removing{ animation:msgOut .18s ease forwards; }
   @keyframes msgOut{ to{ opacity:0; transform:scale(0.85); } }
 
-  .file-chip{ display:flex; align-items:center; gap:9px; background:rgba(255,255,255,0.35); border:1px solid var(--bubble-them-border); border-radius:11px; padding:9px 11px; color:inherit; text-decoration:none; font-size:13px; }
-  .msg.them .file-chip{ background:var(--surface-2); }
+  .file-chip{ display:flex; align-items:center; gap:9px; border-radius:11px; padding:9px 11px; color:inherit; text-decoration:none; font-size:13px; font-weight:500; }
+  /* darken (not lighten) the sender's own bubble for the chip — a light
+     overlay on a colored bubble can wash the bubble text out to near-grey */
+  .msg.me .file-chip{ background:rgba(0,0,0,0.16); border:1px solid rgba(0,0,0,0.1); }
+  .msg.them .file-chip{ background:var(--surface-2); border:1px solid var(--bubble-them-border); }
 
   /* incoming file/photo progress bubble */
   .progress-msg{ width:180px; }
@@ -219,6 +267,9 @@
   .progress-text{ font-size:11.5px; color:var(--muted); margin-top:7px; display:flex; justify-content:space-between; }
   .progress-bar-track{ height:4px; background:var(--border); border-radius:2px; margin-top:4px; overflow:hidden; }
   .progress-bar-fill{ height:100%; background:var(--accent); width:0%; transition:width .2s ease; }
+  .msg.paused .progress-box{ opacity:0.5; }
+  .msg.paused .progress-label{ color:var(--danger); }
+  .msg.paused .progress-bar-fill{ background:var(--muted); }
 
   .composer{ background:var(--surface); border:1px solid var(--border); border-radius:0 0 16px 16px; padding:10px; display:flex; gap:8px; align-items:center; }
   .composer input{ flex:1; }
@@ -411,7 +462,7 @@
     <button class="icon-btn attach-btn" id="attachBtn" title="Send a photo or file">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
     </button>
-    <input type="file" id="fileInput" style="display:none">
+    <input type="file" id="fileInput" multiple style="display:none">
     <input type="text" id="msgInput" placeholder="Type a message…" maxlength="1000">
     <button class="send-btn" id="sendBtn">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
@@ -522,7 +573,12 @@ const THEMES = [
   {id:'sunset',   name:'Sunset',   swatch:'radial-gradient(circle at 35% 35%, #fff0e6, #ef7a53)'},
   {id:'lavender', name:'Lavender', swatch:'radial-gradient(circle at 35% 35%, #f1ecfb, #8b6fd9)'},
   {id:'blush',    name:'Blush',    swatch:'radial-gradient(circle at 35% 35%, #ffeaf0, #e8618c)'},
-  {id:'midnight', name:'Midnight', swatch:'radial-gradient(circle at 35% 35%, #2c3646, #5db3f0)'}
+  {id:'mint',     name:'Mint',     swatch:'radial-gradient(circle at 35% 35%, #e6f7f1, #2fb894)'},
+  {id:'midnight',     name:'Midnight',     swatch:'radial-gradient(circle at 35% 35%, #2c3646, #5db3f0)'},
+  {id:'charcoal',     name:'Charcoal',     swatch:'radial-gradient(circle at 35% 35%, #242830, #6fd3c7)'},
+  {id:'plum',         name:'Plum',         swatch:'radial-gradient(circle at 35% 35%, #2c2236, #b26fd9)'},
+  {id:'forest-dark',  name:'Forest',       swatch:'radial-gradient(circle at 35% 35%, #1f2e21, #5fd68a)'},
+  {id:'crimson-dark', name:'Crimson',      swatch:'radial-gradient(circle at 35% 35%, #2c2020, #e0575c)'}
 ];
 const PATTERNS = [
   {id:'none',     name:'Plain',    style:''},
@@ -841,6 +897,8 @@ function makeMessageDraggable(el, msgId, cancelPress, markHandled){
   let dragging = false;
   let startY = 0;
   let originY = 0; // translateY offset accumulated across re-parenting
+  let latestY = 0;
+  let rafId = null;
 
   function getY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
 
@@ -875,10 +933,19 @@ function makeMessageDraggable(el, msgId, cancelPress, markHandled){
       cancelPress();       // make sure the plain "pressing" state is cleared
       el.classList.remove('pressing');
       el.classList.add('dragging');
+      el.style.transition = 'none'; // kill the armed-state transition so the bubble tracks 1:1
     }
     if(!dragging) return;
     if(e.cancelable) e.preventDefault();
+    latestY = y;
+    if(rafId) return;
+    rafId = requestAnimationFrame(processFrame); // batch DOM reads/writes to once per frame
+  }
 
+  function processFrame(){
+    rafId = null;
+    if(!dragging) return;
+    const dy = latestY - startY;
     const totalDy = originY + dy;
     el.style.transform = `translateY(${totalDy}px)`;
 
@@ -889,22 +956,22 @@ function makeMessageDraggable(el, msgId, cancelPress, markHandled){
     const prev = el.previousElementSibling;
     const next = el.nextElementSibling;
 
-    if(prev && prev.classList.contains('msg')){
+    if(prev && prev.classList.contains('msg') && !prev.classList.contains('dragging')){
       const pRect = prev.getBoundingClientRect();
       if(centerY < pRect.top + pRect.height / 2){
         box.insertBefore(el, prev);
         originY = totalDy;
-        startY = y;
+        startY = latestY;
         el.style.transform = `translateY(0px)`;
         return;
       }
     }
-    if(next && next.classList.contains('msg')){
+    if(next && next.classList.contains('msg') && !next.classList.contains('dragging')){
       const nRect = next.getBoundingClientRect();
       if(centerY > nRect.top + nRect.height / 2){
         box.insertBefore(next, el);
         originY = totalDy;
-        startY = y;
+        startY = latestY;
         el.style.transform = `translateY(0px)`;
       }
     }
@@ -912,10 +979,15 @@ function makeMessageDraggable(el, msgId, cancelPress, markHandled){
 
   function onUp(){
     clearTimeout(armTimer);
+    if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
     if(dragging){
+      // brief snap-back transition so the drop reads as smooth, not abrupt
+      el.style.transition = 'transform .15s cubic-bezier(.2,.8,.2,1)';
       el.style.transform = '';
-      el.classList.remove('dragging','armed');
+      el.classList.remove('dragging');
       if(navigator.vibrate) navigator.vibrate(8);
+      broadcastCurrentOrder();
+      setTimeout(()=>{ el.style.transition = ''; el.classList.remove('armed'); }, 170);
     } else if(armed){
       el.classList.remove('armed');
     }
@@ -932,6 +1004,24 @@ function makeMessageDraggable(el, msgId, cancelPress, markHandled){
 
   el.addEventListener('mousedown', onDown);
   el.addEventListener('touchstart', onDown, {passive:true});
+}
+
+/* ---------------- reordering: sync the new message order to everyone ---------------- */
+function broadcastCurrentOrder(){
+  const box = document.getElementById('messages');
+  const ids = [...box.querySelectorAll('.msg[data-msg-id]')].map(el=>el.dataset.msgId);
+  encryptObj(state.key, {type:'reorder', order: ids}).then(payload=>{
+    sendPayloadToPeers(payload);
+  });
+}
+function applyReorderedIds(orderIds){
+  const box = document.getElementById('messages');
+  orderIds.forEach(id=>{
+    const entry = messageElements.get(id);
+    if(entry && entry.el && entry.el.parentNode === box){
+      box.appendChild(entry.el);
+    }
+  });
 }
 
 function fileChipHtml(name, dataUrl){
@@ -1040,6 +1130,18 @@ function updateProgressMessage(buf){
   if(fillEl) fillEl.style.width = pct + '%';
   const box = document.getElementById('messages');
   if(isNearBottom(box)) box.scrollTop = box.scrollHeight;
+}
+function setProgressPaused(buf, paused){
+  if(!buf || !buf.el) return;
+  const label = buf.el.querySelector('.progress-label');
+  if(paused){
+    if(label && buf.pausedLabelBackup === undefined) buf.pausedLabelBackup = label.textContent;
+    if(label) label.textContent = 'Waiting for connection…';
+    buf.el.classList.add('paused');
+  } else {
+    if(label && buf.pausedLabelBackup !== undefined) label.textContent = buf.pausedLabelBackup;
+    buf.el.classList.remove('paused');
+  }
 }
 function finalizeIncomingFile(buf, dataUrl, msgId){
   const el = buf.el;
@@ -1237,6 +1339,10 @@ async function handleIncoming(raw, fromConnId){
   }
   else if(obj.type === 'typing'){
     if(obj.typing){ showTypingIndicator(obj.name); } else { hideTypingIndicator(obj.name); }
+    if(state.isHost){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'reorder'){
+    applyReorderedIds(obj.order);
     if(state.isHost){ await relayToOthers(fromConnId, raw); }
   }
   else if(obj.type === 'roster' && !state.isHost){
@@ -1571,9 +1677,50 @@ function formatBytes(n){
   return (n/(1024*1024*1024)).toFixed(2) + ' GB';
 }
 
+// ---- connection readiness, used to pause/resume an in-progress file send
+// across a network drop instead of silently losing chunks ----
+function transferReady(){
+  if(state.isHost){
+    if(state.conns.size === 0) return true; // no one to send to — don't block
+    for(const {conn} of state.conns.values()){ if(!conn.open) return false; }
+    return true;
+  }
+  return !!(state.hostConn && state.hostConn.open);
+}
+function waitUntilTransferReady(){
+  if(transferReady()) return Promise.resolve();
+  return new Promise(resolve=>{
+    (function check(){
+      if(transferReady()) return resolve();
+      setTimeout(check, 600); // poll — connections can drop/return without a dedicated event we hook everywhere
+    })();
+  });
+}
+async function ensureTransferReady(buf){
+  if(transferReady()) return;
+  setProgressPaused(buf, true);
+  await waitUntilTransferReady();
+  setProgressPaused(buf, false);
+}
+
+// ---- queue so multiple files can be picked at once and sent concurrently,
+// each yielding to the others rather than blocking on one at a time ----
+let sendFileQueue = [];
+let activeSendCount = 0;
+const MAX_CONCURRENT_FILE_SENDS = 3;
+function queueFileSend(file){
+  sendFileQueue.push(file);
+  pumpFileQueue();
+}
+function pumpFileQueue(){
+  while(activeSendCount < MAX_CONCURRENT_FILE_SENDS && sendFileQueue.length){
+    const file = sendFileQueue.shift();
+    activeSendCount++;
+    sendFile(file).finally(()=>{ activeSendCount--; pumpFileQueue(); });
+  }
+}
+
 async function sendFile(file){
-  const attachBtn = document.getElementById('attachBtn');
-  attachBtn.disabled = true;
   let buf = null;
   try{
     const isImage = file.type.startsWith('image/');
@@ -1595,10 +1742,13 @@ async function sendFile(file){
     const total = Math.ceil(dataUrl.length / CHUNK_SIZE);
     const ts = Date.now();
 
-    buf = { total, received:0, name: state.myName, ts, isImage, fileName: file.name, mine:true, sizeLabel: formatBytes(file.size) };
+    buf = { total, received:0, nextSeq:0, name: state.myName, ts, isImage, fileName: file.name, mine:true, sizeLabel: formatBytes(file.size) };
     buf.el = addProgressMessage(buf);
 
-    for(let i=0; i<total; i++){
+    for(let i=buf.nextSeq; i<total; i++){
+      // pause here (showing it in the bubble) instead of dropping the chunk
+      // if the connection is down — resumes with this same chunk once it's back
+      await ensureTransferReady(buf);
       const chunk = dataUrl.slice(i*CHUNK_SIZE, (i+1)*CHUNK_SIZE);
       const payload = await encryptObj(state.key, {
         type:'file-chunk', id, seq:i, total, name: state.myName, ts,
@@ -1606,10 +1756,11 @@ async function sendFile(file){
       });
       sendPayloadToPeers(payload);
       buf.received++;
+      buf.nextSeq = i+1;
       // updating the DOM every chunk gets expensive on huge files with
       // thousands of chunks, so throttle the visible refresh a bit
       if(i % 5 === 0 || i === total-1) updateProgressMessage(buf);
-      if(i % 3 === 2) await new Promise(r=> setTimeout(r, 0)); // yield so the UI doesn't freeze on big files
+      if(i % 3 === 2) await new Promise(r=> setTimeout(r, 0)); // yield so the UI doesn't freeze on big files, and lets other queued files' chunks interleave
     }
 
     finalizeSentFile(buf, dataUrl, id);
@@ -1617,16 +1768,14 @@ async function sendFile(file){
     console.error(err);
     if(buf && buf.el) buf.el.remove();
     addMessage({system:true, text:"Couldn't send that file."});
-  } finally {
-    attachBtn.disabled = false;
   }
 }
 document.getElementById('attachBtn').addEventListener('click', ()=> document.getElementById('fileInput').click());
 document.getElementById('fileInput').addEventListener('change', (e)=>{
-  const file = e.target.files[0];
+  const files = Array.from(e.target.files);
   e.target.value = '';
-  if(!file) return;
-  sendFile(file);
+  if(!files.length) return;
+  files.forEach(f=> queueFileSend(f));
 });
 
 /* ---------------- leaving ---------------- */

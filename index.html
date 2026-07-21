@@ -1009,20 +1009,23 @@ document.getElementById('msgDeleteForEveryone').addEventListener('click', async 
   closeSheets();
 });
 
-/* ---------------- incoming file/photo progress bubble ---------------- */
+/* ---------------- sending/receiving file/photo progress bubble ---------------- */
 function addProgressMessage(buf){
   const box = document.getElementById('messages');
   const el = document.createElement('div');
-  el.className = 'msg them progress-msg';
+  const mine = !!buf.mine;
+  const verb = mine ? 'Sending' : 'Receiving';
+  el.className = 'msg ' + (mine ? 'me' : 'them') + ' progress-msg';
   el.innerHTML = `
-    <div class="who">${escapeHtml(buf.name)}</div>
+    ${mine ? '' : `<div class="who">${escapeHtml(buf.name)}</div>`}
     <div class="progress-box">
       <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.55">
         ${buf.isImage ? '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/>' : '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/>'}
       </svg>
     </div>
-    <div class="progress-text"><span class="progress-label">${buf.isImage ? 'Receiving photo…' : 'Receiving file…'}</span><span class="progress-pct">0%</span></div>
+    <div class="progress-text"><span class="progress-label">${verb} ${buf.isImage ? 'photo' : 'file'}…</span><span class="progress-pct">0%</span></div>
     <div class="progress-bar-track"><div class="progress-bar-fill"></div></div>
+    ${buf.sizeLabel ? `<div class="progress-text" style="justify-content:center;opacity:0.75;"><span>${buf.sizeLabel}</span></div>` : ''}
   `;
   box.appendChild(el);
   box.scrollTop = box.scrollHeight;
@@ -1031,8 +1034,10 @@ function addProgressMessage(buf){
 function updateProgressMessage(buf){
   if(!buf.el) return;
   const pct = Math.round((buf.received / buf.total) * 100);
-  buf.el.querySelector('.progress-pct').textContent = pct + '%';
-  buf.el.querySelector('.progress-bar-fill').style.width = pct + '%';
+  const pctEl = buf.el.querySelector('.progress-pct');
+  const fillEl = buf.el.querySelector('.progress-bar-fill');
+  if(pctEl) pctEl.textContent = pct + '%';
+  if(fillEl) fillEl.style.width = pct + '%';
   const box = document.getElementById('messages');
   if(isNearBottom(box)) box.scrollTop = box.scrollHeight;
 }
@@ -1050,6 +1055,23 @@ function finalizeIncomingFile(buf, dataUrl, msgId){
     el.innerHTML = `<div class="who">${escapeHtml(buf.name)}</div>` + fileChipHtml(buf.fileName || 'File', dataUrl) + (time?`<div class="time">${time}</div>`:'');
   }
   attachMessageActions(el, false, msgId, false, preview);
+  if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
+}
+
+function finalizeSentFile(buf, dataUrl, msgId){
+  const el = buf.el;
+  const time = buf.ts ? new Date(buf.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+  el.classList.remove('progress-msg');
+  let preview = buf.isImage ? 'Photo' : (buf.fileName || 'File');
+  if(buf.isImage){
+    el.classList.add('has-image');
+    el.innerHTML = `<img class="msg-img" src="${dataUrl}" alt="Shared photo">` + (time?`<div class="time">${time}</div>`:'');
+    const img = el.querySelector('.msg-img');
+    img.addEventListener('click', (e)=>{ e.stopPropagation(); if(el.classList.contains('pressing')) return; openLightbox(dataUrl); });
+  } else {
+    el.innerHTML = fileChipHtml(buf.fileName || 'File', dataUrl) + (time?`<div class="time">${time}</div>`:'');
+  }
+  attachMessageActions(el, false, msgId, true, preview);
   if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
 }
 
@@ -1187,14 +1209,14 @@ async function handleIncoming(raw, fromConnId){
     hideTypingIndicator(obj.name);
     let buf = incomingFiles.get(obj.id);
     if(!buf){
-      buf = { chunks:new Array(obj.total), total:obj.total, received:0, name:obj.name, ts:obj.ts, isImage:obj.isImage, fileName:obj.fileName };
+      buf = { chunks:new Array(obj.total), total:obj.total, received:0, name:obj.name, ts:obj.ts, isImage:obj.isImage, fileName:obj.fileName, sizeLabel: obj.fileSize ? formatBytes(obj.fileSize) : '' };
       buf.el = addProgressMessage(buf);
       incomingFiles.set(obj.id, buf);
     }
     if(buf.chunks[obj.seq] === undefined){
       buf.chunks[obj.seq] = obj.data;
       buf.received++;
-      updateProgressMessage(buf);
+      if(buf.received % 5 === 0 || buf.received === buf.total) updateProgressMessage(buf);
     }
     if(buf.received === buf.total){
       const dataUrl = buf.chunks.join('');
@@ -1538,39 +1560,62 @@ function fileToDataURL(file){
   });
 }
 
+// No hard cap beyond what the browser itself can hold as a base64 string in
+// memory. This is generous — large files just take longer, which is expected.
+const MAX_DATA_URL_LEN = 500 * 1024 * 1024; // ~375MB actual file (base64 adds ~33%)
+
+function formatBytes(n){
+  if(n < 1024) return n + ' B';
+  if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  if(n < 1024*1024*1024) return (n/(1024*1024)).toFixed(1) + ' MB';
+  return (n/(1024*1024*1024)).toFixed(2) + ' GB';
+}
+
 async function sendFile(file){
   const attachBtn = document.getElementById('attachBtn');
   attachBtn.disabled = true;
+  let buf = null;
   try{
     const isImage = file.type.startsWith('image/');
     let dataUrl;
     if(isImage){
+      // still compress photos for a snappier send — this is a quality choice,
+      // not a size limit. Large non-image files are sent as-is.
       dataUrl = await compressImage(file, 1280, 0.72);
       if(dataUrl.length > 3000000) dataUrl = await compressImage(file, 900, 0.5);
     } else {
       dataUrl = await fileToDataURL(file);
     }
-    if(dataUrl.length > 7000000){
-      addMessage({system:true, text: isImage ? "That photo is too large to send — try a smaller one." : "That file is too large to send (try something under ~5MB)."});
+    if(dataUrl.length > MAX_DATA_URL_LEN){
+      addMessage({system:true, text: `That ${isImage?'photo':'file'} is too large to send (${formatBytes(file.size)}). Try something smaller.`});
       return;
     }
 
     const id = randomCode(10);
     const total = Math.ceil(dataUrl.length / CHUNK_SIZE);
     const ts = Date.now();
-    addMessage({who: state.myName, mine:true, ts, id, image: isImage ? dataUrl : null, file: isImage ? null : {name:file.name, dataUrl}});
+
+    buf = { total, received:0, name: state.myName, ts, isImage, fileName: file.name, mine:true, sizeLabel: formatBytes(file.size) };
+    buf.el = addProgressMessage(buf);
 
     for(let i=0; i<total; i++){
       const chunk = dataUrl.slice(i*CHUNK_SIZE, (i+1)*CHUNK_SIZE);
       const payload = await encryptObj(state.key, {
         type:'file-chunk', id, seq:i, total, name: state.myName, ts,
-        isImage, fileName: file.name, data: chunk
+        isImage, fileName: file.name, fileSize: file.size, data: chunk
       });
       sendPayloadToPeers(payload);
+      buf.received++;
+      // updating the DOM every chunk gets expensive on huge files with
+      // thousands of chunks, so throttle the visible refresh a bit
+      if(i % 5 === 0 || i === total-1) updateProgressMessage(buf);
       if(i % 3 === 2) await new Promise(r=> setTimeout(r, 0)); // yield so the UI doesn't freeze on big files
     }
+
+    finalizeSentFile(buf, dataUrl, id);
   } catch(err){
     console.error(err);
+    if(buf && buf.el) buf.el.remove();
     addMessage({system:true, text:"Couldn't send that file."});
   } finally {
     attachBtn.disabled = false;

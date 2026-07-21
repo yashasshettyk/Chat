@@ -457,10 +457,6 @@
       </div>
     </div>
     <div class="header-right">
-      <div class="net-speed-badge" id="netSpeedBadge" title="Network speed">
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg>
-        <span id="netSpeedText">—</span>
-      </div>
       <div class="icon-btn" id="menuBtn" title="Chat menu">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg>
       </div>
@@ -1048,7 +1044,7 @@ function fileChipHtml(name, dataUrl){
 function addMessage({who, text, mine, system, ts, image, file, id}){
   const box = document.getElementById('messages');
   const el = document.createElement('div');
-  const time = formatTime(ts);
+  const time = ts ? new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
   let preview = text || (image ? 'Photo' : (file ? file.name : ''));
   if(system){
     el.className = 'sys'; el.textContent = text;
@@ -1076,7 +1072,6 @@ function addMessage({who, text, mine, system, ts, image, file, id}){
 }
 function isNearBottom(box){ return box.scrollHeight - box.scrollTop - box.clientHeight < 200; }
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
-function formatTime(ts){ return ts ? new Date(ts).toLocaleTimeString([], {hour:'numeric', minute:'2-digit', hour12:true}) : ''; }
 
 /* ---------------- message action sheet (delete for me / everyone) ---------------- */
 function openMsgActionSheet(msgId){
@@ -1132,7 +1127,7 @@ function addProgressMessage(buf){
     </div>
     <div class="progress-text"><span class="progress-label">${verb} ${buf.isImage ? 'photo' : 'file'}…</span><span class="progress-pct">0%</span></div>
     <div class="progress-bar-track"><div class="progress-bar-fill"></div></div>
-    <div class="progress-text progress-meta" style="justify-content:center;opacity:0.75;"><span class="progress-meta-text">${buf.sizeLabel || ''}</span></div>
+    ${buf.sizeLabel ? `<div class="progress-text" style="justify-content:center;opacity:0.75;"><span>${buf.sizeLabel}</span></div>` : ''}
   `;
   box.appendChild(el);
   box.scrollTop = box.scrollHeight;
@@ -1145,25 +1140,6 @@ function updateProgressMessage(buf){
   const fillEl = buf.el.querySelector('.progress-bar-fill');
   if(pctEl) pctEl.textContent = pct + '%';
   if(fillEl) fillEl.style.width = pct + '%';
-
-  const metaEl = buf.el.querySelector('.progress-meta-text');
-  if(metaEl){
-    const parts = [];
-    if(buf.sizeLabel) parts.push(buf.sizeLabel);
-    if(buf.fileSizeBytes){
-      const bytesSoFar = Math.round((buf.received / buf.total) * buf.fileSizeBytes);
-      updateTransferSpeed(buf, bytesSoFar);
-      if(buf.speedBps > 0){
-        parts.push((buf.mine ? '↑ ' : '↓ ') + formatSpeed(buf.speedBps));
-        const remaining = buf.fileSizeBytes - bytesSoFar;
-        const etaStr = formatEta(remaining / buf.speedBps);
-        if(etaStr) parts.push(etaStr);
-      }
-    }
-    metaEl.textContent = parts.join(' · ');
-  }
-  updateNetSpeedBadge();
-
   const box = document.getElementById('messages');
   if(isNearBottom(box)) box.scrollTop = box.scrollHeight;
 }
@@ -1181,14 +1157,12 @@ function setProgressPaused(buf, paused){
 }
 function finalizeIncomingFile(buf, dataUrl, msgId){
   const el = buf.el;
-  const time = formatTime(buf.ts);
+  const time = buf.ts ? new Date(buf.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
   el.classList.remove('progress-msg');
   let preview = buf.isImage ? 'Photo' : (buf.fileName || 'File');
   if(buf.isImage){
     el.classList.add('has-image');
-    el.innerHTML = `<div class="who">${escapeHtml(buf.name)}</div>` +
-      `<img class="msg-img" src="${dataUrl}" alt="Shared photo">` +
-      (time?`<div class="time">${time}</div>`:'');
+    el.innerHTML = `<div class="who">${escapeHtml(buf.name)}</div><img class="msg-img" src="${dataUrl}" alt="Shared photo">` + (time?`<div class="time">${time}</div>`:'');
     const img = el.querySelector('.msg-img');
     img.addEventListener('click', (e)=>{ e.stopPropagation(); if(el.classList.contains('pressing')) return; openLightbox(dataUrl); });
   } else {
@@ -1197,9 +1171,10 @@ function finalizeIncomingFile(buf, dataUrl, msgId){
   attachMessageActions(el, false, msgId, false, preview);
   if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
 }
+
 function finalizeSentFile(buf, dataUrl, msgId){
   const el = buf.el;
-  const time = formatTime(buf.ts);
+  const time = buf.ts ? new Date(buf.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
   el.classList.remove('progress-msg');
   let preview = buf.isImage ? 'Photo' : (buf.fileName || 'File');
   if(buf.isImage){
@@ -1348,7 +1323,7 @@ async function handleIncoming(raw, fromConnId){
     hideTypingIndicator(obj.name);
     let buf = incomingFiles.get(obj.id);
     if(!buf){
-      buf = { chunks:new Array(obj.total), total:obj.total, received:0, name:obj.name, ts:obj.ts, isImage:obj.isImage, fileName:obj.fileName, fileSizeBytes: obj.fileSize || 0, sizeLabel: obj.fileSize ? formatBytes(obj.fileSize) : '' };
+      buf = { chunks:new Array(obj.total), total:obj.total, received:0, name:obj.name, ts:obj.ts, isImage:obj.isImage, fileName:obj.fileName, sizeLabel: obj.fileSize ? formatBytes(obj.fileSize) : '' };
       buf.el = addProgressMessage(buf);
       incomingFiles.set(obj.id, buf);
     }
@@ -1361,7 +1336,6 @@ async function handleIncoming(raw, fromConnId){
       const dataUrl = buf.chunks.join('');
       finalizeIncomingFile(buf, dataUrl, obj.id);
       incomingFiles.delete(obj.id);
-      updateNetSpeedBadge();
     }
     if(state.isHost){ await relayToOthers(fromConnId, raw); }
   }
@@ -1370,7 +1344,6 @@ async function handleIncoming(raw, fromConnId){
     if(buf){
       if(buf.el) buf.el.remove();
       incomingFiles.delete(obj.id);
-      updateNetSpeedBadge();
       addMessage({system:true, text: `${obj.name || 'They'} cancelled sending ${buf.isImage ? 'a photo' : (buf.fileName || 'a file')}.`});
     }
     if(state.isHost){ await relayToOthers(fromConnId, raw); }
@@ -1724,39 +1697,6 @@ function formatBytes(n){
   if(n < 1024*1024*1024) return (n/(1024*1024)).toFixed(1) + ' MB';
   return (n/(1024*1024*1024)).toFixed(2) + ' GB';
 }
-function formatSpeed(bytesPerSec){
-  if(!bytesPerSec || bytesPerSec <= 0) return '';
-  if(bytesPerSec < 1024) return bytesPerSec.toFixed(0) + ' B/s';
-  if(bytesPerSec < 1024*1024) return (bytesPerSec/1024).toFixed(0) + ' KB/s';
-  return (bytesPerSec/(1024*1024)).toFixed(1) + ' MB/s';
-}
-function formatEta(sec){
-  if(!isFinite(sec) || sec <= 0) return '';
-  if(sec < 1) return 'almost done';
-  if(sec < 60) return Math.ceil(sec) + 's left';
-  const m = Math.floor(sec/60), s = Math.round(sec%60);
-  if(m < 60) return m + 'm ' + s + 's left';
-  const h = Math.floor(m/60), rm = m%60;
-  return h + 'h ' + rm + 'm left';
-}
-// smoothed (EMA) transfer rate for one file — call with total bytes moved so
-// far each time the progress UI refreshes; resets its baseline (via
-// buf.lastTickTime = undefined) whenever a transfer resumes from a pause so
-// the paused stretch doesn't get counted as near-zero throughput
-function updateTransferSpeed(buf, bytesSoFar){
-  const now = performance.now();
-  if(buf.lastTickTime === undefined){
-    buf.lastTickTime = now; buf.lastTickBytes = bytesSoFar;
-    return;
-  }
-  const dt = (now - buf.lastTickTime) / 1000;
-  if(dt < 0.15) return; // not enough time passed for a meaningful sample
-  const inst = Math.max(0, (bytesSoFar - buf.lastTickBytes) / dt);
-  buf.speedBps = (buf.speedBps === undefined) ? inst : (buf.speedBps*0.65 + inst*0.35);
-  buf.lastTickTime = now;
-  buf.lastTickBytes = bytesSoFar;
-}
-let activeOutgoingBufs = new Set(); // outgoing transfers currently in flight, for the header speed badge
 
 // ---- connection readiness, used to pause/resume an in-progress file send
 // across a network drop instead of silently losing chunks ----
@@ -1781,7 +1721,6 @@ async function ensureTransferReady(buf){
   if(transferReady() || buf.cancelled) return;
   setProgressPaused(buf, true);
   await waitUntilTransferReady(buf);
-  buf.lastTickTime = undefined; // don't count the paused stretch toward the speed average
   setProgressPaused(buf, false);
 }
 
@@ -1824,9 +1763,8 @@ async function sendFile(file){
     const total = Math.ceil(dataUrl.length / CHUNK_SIZE);
     const ts = Date.now();
 
-    buf = { total, received:0, nextSeq:0, name: state.myName, ts, isImage, fileName: file.name, fileSizeBytes: file.size, mine:true, sizeLabel: formatBytes(file.size) };
+    buf = { total, received:0, nextSeq:0, name: state.myName, ts, isImage, fileName: file.name, mine:true, sizeLabel: formatBytes(file.size) };
     buf.el = addProgressMessage(buf);
-    activeOutgoingBufs.add(buf);
     const cancelBtn = buf.el.querySelector('.progress-cancel-btn');
     if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ buf.cancelled = true; });
 
@@ -1863,9 +1801,6 @@ async function sendFile(file){
     console.error(err);
     if(buf && buf.el) buf.el.remove();
     addMessage({system:true, text:"Couldn't send that file."});
-  } finally {
-    if(buf) activeOutgoingBufs.delete(buf);
-    updateNetSpeedBadge();
   }
 }
 document.getElementById('attachBtn').addEventListener('click', ()=> document.getElementById('fileInput').click());

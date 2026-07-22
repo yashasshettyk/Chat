@@ -232,16 +232,37 @@
   .icon-btn.mic-on{ color:var(--online); border-color:var(--online); }
   .icon-btn.captions-on{ color:var(--online); border-color:var(--online); }
 
-  .caption-bar{ display:flex; flex-direction:column; gap:4px; padding:0 12px; }
+  /* ---------- floating live captions (glassmorphism) ---------- */
+  .caption-bar{ position:absolute; left:12px; right:12px; bottom:14px; z-index:5; display:flex; flex-direction:column; gap:8px; align-items:flex-start; pointer-events:none; }
   .caption-bar:empty{ display:none; }
-  .caption-row{ align-self:flex-start; max-width:88%; background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:6px 11px; font-size:13px; line-height:1.4; display:flex; gap:6px; animation:typingIn .22s cubic-bezier(.2,.8,.2,1); }
-  .caption-row .caption-name{ font-weight:600; color:var(--accent); font-family:'Space Grotesk',sans-serif; flex-shrink:0; }
-  .caption-row .caption-text{ color:var(--text); word-wrap:break-word; }
+  .caption-row{
+    position:relative; max-width:88%; padding:10px 16px 10px 14px; border-radius:18px;
+    font-size:13.5px; line-height:1.45; display:flex; gap:7px; color:#f4f6f9;
+    background:linear-gradient(135deg, rgba(50,56,70,0.55), rgba(50,56,70,0.32));
+    -webkit-backdrop-filter:blur(18px) saturate(180%); backdrop-filter:blur(18px) saturate(180%);
+    border:1px solid rgba(255,255,255,0.16);
+    box-shadow:0 12px 32px -8px rgba(10,14,20,0.4), inset 0 1px 0 rgba(255,255,255,0.14);
+    overflow:hidden;
+    animation:captionIn .42s cubic-bezier(.2,.8,.2,1) both, captionFloat 3.6s ease-in-out .42s infinite;
+    transition:opacity .26s ease, transform .26s ease;
+  }
+  .caption-row::before{
+    content:''; position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none;
+    background:linear-gradient(120deg, var(--accent), rgba(255,255,255,0.05) 45%, var(--accent) 100%);
+    opacity:0.55; -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+  }
+  .caption-row.caption-out{ animation:none; opacity:0; transform:translateY(10px) scale(0.94); }
+  .caption-row .caption-name{ font-weight:700; font-family:'Space Grotesk',sans-serif; flex-shrink:0; background:linear-gradient(120deg, var(--accent), #fff 130%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .caption-row .caption-text{ color:#f4f6f9; word-wrap:break-word; }
+  @keyframes captionIn{ from{ opacity:0; transform:translateY(16px) scale(0.92); } to{ opacity:1; transform:none; } }
+  @keyframes captionFloat{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-5px); } }
 
   .conn-banner{ display:none; align-items:center; justify-content:center; gap:8px; background:var(--surface-2); color:var(--muted); font-size:12.5px; padding:8px; border-left:1px solid var(--border); border-right:1px solid var(--border); }
   .conn-banner.active{ display:flex; }
   .conn-banner.retry{ cursor:pointer; color:var(--accent); font-weight:600; }
 
+  .chat-body{ flex:1; min-height:0; position:relative; display:flex; flex-direction:column; }
   .messages{ flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; background:var(--bg); border-left:1px solid var(--border); border-right:1px solid var(--border); padding:16px; display:flex; flex-direction:column; gap:10px; }
   .messages::-webkit-scrollbar{ width:6px; }
   .messages::-webkit-scrollbar-thumb{ background:var(--border); border-radius:3px; }
@@ -410,11 +431,9 @@
   .ss-close.captions-on{ background:var(--online); color:#0a0d12; }
   .ss-video-wrap{ flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:10px; position:relative; }
   .ss-empty{ color:#8b93a0; font-family:'Inter',sans-serif; font-size:13.5px; text-align:center; max-width:280px; line-height:1.6; margin:auto; }
-  .ss-caption-bar{ position:absolute; left:12px; right:12px; bottom:12px; display:flex; flex-direction:column; gap:6px; align-items:center; pointer-events:none; z-index:6; }
+  .ss-caption-bar{ position:absolute; left:12px; right:12px; bottom:12px; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; z-index:6; }
   .ss-caption-bar:empty{ display:none; }
-  .ss-caption-bar .caption-row{ background:rgba(10,13,18,0.78); border:1px solid rgba(255,255,255,0.12); color:#e7e9ec; max-width:min(90%,560px); }
-  .ss-caption-bar .caption-row .caption-name{ color:#8fc4f2; }
-  .ss-caption-bar .caption-row .caption-text{ color:#e7e9ec; }
+  .ss-caption-bar .caption-row{ max-width:min(90%,560px); }
   .ss-grid{ flex:1; display:none; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:12px; padding:14px; overflow-y:auto; align-content:start; }
   .ss-grid.active{ display:grid; }
   .ss-tile{ position:relative; background:#000; border-radius:12px; overflow:hidden; display:flex; align-items:center; justify-content:center; aspect-ratio:16/9; }
@@ -649,8 +668,10 @@
     </div>
   </div>
   <div class="conn-banner" id="connBanner"></div>
-  <div class="messages" id="messages"></div>
-  <div class="caption-bar" id="captionBar"></div>
+  <div class="chat-body" id="chatBody">
+    <div class="messages" id="messages"></div>
+    <div class="caption-bar" id="captionBar"></div>
+  </div>
   <div class="composer">
     <button class="icon-btn attach-btn" id="attachBtn" title="Send a photo or file">
       <span class="material-symbols-outlined" style="font-size:17px;">attach_file</span>
@@ -867,11 +888,14 @@
   </div>
 </div>
 
-<!-- In-app QR camera scanner (used from Join tab + sketch board) -->
+<!-- In-app QR camera scanner (used from Join tab) -->
 <div class="qr-scanner-modal" id="qrScannerModal">
   <div class="ss-header">
     <div class="ss-title"><span>Scan a Cipher QR code</span></div>
-    <button class="ss-close" id="qrScannerCloseBtn"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button class="ss-close" id="qrLensBtn" title="Switch camera lens" style="display:none;"><span class="material-symbols-outlined" style="font-size:16px;">cameraswitch</span></button>
+      <button class="ss-close" id="qrScannerCloseBtn"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
+    </div>
   </div>
   <div class="qr-scanner-video-wrap">
     <video id="qrScannerVideo" playsinline muted></video>
@@ -1269,6 +1293,62 @@ parseInviteHash();
    room/security code fields. */
 let qrScannerStream = null;
 let qrScannerRAF = null;
+let qrCameraDevices = [];   // rear-facing videoinput devices, populated once we
+                             // have camera permission (device labels are blank
+                             // until then, so this list can only be built after
+                             // the first getUserMedia call succeeds)
+let qrCameraIndex = 0;
+function isLikelyRearCamera(label){
+  const l = (label || '').toLowerCase();
+  if(!l) return true; // unlabeled — don't assume it's the front camera
+  return !(l.includes('front') || l.includes('user') || l.includes('selfie') || l.includes('face'));
+}
+async function refreshQrCameraDevices(activeDeviceId){
+  if(!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices)){ qrCameraDevices = []; return; }
+  try{
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const rear = devices.filter(d => d.kind === 'videoinput' && isLikelyRearCamera(d.label));
+    // Put whichever lens is actually active right now first, so the first
+    // tap of the switch button moves to a genuinely different lens.
+    if(activeDeviceId){
+      const idx = rear.findIndex(d => d.deviceId === activeDeviceId);
+      if(idx > 0){ const [active] = rear.splice(idx, 1); rear.unshift(active); }
+    }
+    qrCameraDevices = rear;
+  } catch(e){ qrCameraDevices = []; }
+}
+async function pinStreamZoomTo1x(stream){
+  try{
+    const track = stream.getVideoTracks()[0];
+    const caps = track && track.getCapabilities ? track.getCapabilities() : null;
+    // Where the device reports a zoom range (values below 1 are usually the
+    // ultra-wide lens), explicitly pin it to 1x instead of whatever the
+    // browser picked as its "default".
+    if(caps && caps.zoom && track.applyConstraints){
+      const targetZoom = Math.min(Math.max(1, caps.zoom.min), caps.zoom.max);
+      await track.applyConstraints({ advanced: [{ zoom: targetZoom }] }).catch(()=>{});
+    }
+  } catch(e){}
+}
+async function getQrStream(deviceId){
+  const primary = deviceId
+    ? { video: { deviceId: { exact: deviceId }, zoom: 1 } }
+    : { video: { facingMode: 'environment', zoom: 1 } };
+  try{
+    return await navigator.mediaDevices.getUserMedia(primary);
+  } catch(e){
+    // Some browsers reject an unsupported 'zoom' constraint outright —
+    // retry once without it before giving up.
+    const fallback = deviceId
+      ? { video: { deviceId: { exact: deviceId } } }
+      : { video: { facingMode: 'environment' } };
+    return await navigator.mediaDevices.getUserMedia(fallback);
+  }
+}
+function updateQrLensBtnVisibility(){
+  const btn = document.getElementById('qrLensBtn');
+  if(btn) btn.style.display = qrCameraDevices.length > 1 ? 'flex' : 'none';
+}
 function stopQrScanner(){
   if(qrScannerRAF){ cancelAnimationFrame(qrScannerRAF); qrScannerRAF = null; }
   if(qrScannerStream){ qrScannerStream.getTracks().forEach(t=>t.stop()); qrScannerStream = null; }
@@ -1281,38 +1361,27 @@ async function openQrScanner(onResult){
   const status = document.getElementById('qrScannerStatus');
   status.classList.remove('error');
   status.textContent = 'Point your camera at a Cipher invite QR code';
+  document.getElementById('qrLensBtn').style.display = 'none';
   modal.classList.add('active');
   if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
     status.classList.add('error');
     status.textContent = "This browser doesn't support camera access.";
     return;
   }
+  qrCameraDevices = [];
+  qrCameraIndex = 0;
   try{
-    // Ask for the standard (1x) rear lens, not the ultra-wide. Some phones
-    // expose several rear cameras and will hand back the 0.5x ultra-wide
-    // lens by default for a plain 'environment' request, so we also nudge
-    // the zoom constraint toward 1x below once we have the track.
-    qrScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', zoom: 1 } });
+    qrScannerStream = await getQrStream();
   } catch(e){
-    try{
-      qrScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    } catch(e2){
-      status.classList.add('error');
-      status.textContent = "Couldn't access the camera — check your browser's camera permission for this site.";
-      return;
-    }
+    status.classList.add('error');
+    status.textContent = "Couldn't access the camera — check your browser's camera permission for this site.";
+    return;
   }
-  try{
-    const track = qrScannerStream.getVideoTracks()[0];
-    const caps = track && track.getCapabilities ? track.getCapabilities() : null;
-    // Where the device reports a zoom range (values below 1 are usually the
-    // ultra-wide lens), explicitly pin it to 1x instead of whatever the
-    // browser picked as its "default".
-    if(caps && caps.zoom && track.applyConstraints){
-      const targetZoom = Math.min(Math.max(1, caps.zoom.min), caps.zoom.max);
-      await track.applyConstraints({ advanced: [{ zoom: targetZoom }] }).catch(()=>{});
-    }
-  } catch(e){}
+  await pinStreamZoomTo1x(qrScannerStream);
+  const activeTrack = qrScannerStream.getVideoTracks()[0];
+  const activeDeviceId = activeTrack && activeTrack.getSettings ? activeTrack.getSettings().deviceId : null;
+  await refreshQrCameraDevices(activeDeviceId);
+  updateQrLensBtnVisibility();
   video.srcObject = qrScannerStream;
   await video.play().catch(()=>{});
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -1334,7 +1403,30 @@ async function openQrScanner(onResult){
   };
   qrScannerRAF = requestAnimationFrame(tick);
 }
+async function switchQrLens(){
+  if(qrCameraDevices.length < 2) return;
+  const status = document.getElementById('qrScannerStatus');
+  qrCameraIndex = (qrCameraIndex + 1) % qrCameraDevices.length;
+  const nextDeviceId = qrCameraDevices[qrCameraIndex].deviceId;
+  if(qrScannerStream){ qrScannerStream.getTracks().forEach(t=>t.stop()); qrScannerStream = null; }
+  let newStream;
+  try{
+    newStream = await getQrStream(nextDeviceId);
+  } catch(e){
+    status.classList.add('error');
+    status.textContent = "Couldn't switch cameras.";
+    return;
+  }
+  await pinStreamZoomTo1x(newStream);
+  qrScannerStream = newStream;
+  const video = document.getElementById('qrScannerVideo');
+  video.srcObject = qrScannerStream;
+  await video.play().catch(()=>{});
+  status.classList.remove('error');
+  status.textContent = 'Point your camera at a Cipher invite QR code';
+}
 document.getElementById('qrScannerCloseBtn').addEventListener('click', stopQrScanner);
+document.getElementById('qrLensBtn').addEventListener('click', switchQrLens);
 document.getElementById('joinScanQrBtn').addEventListener('click', ()=>{
   openQrScanner((text)=>{
     const payload = decodeInvitePayloadFromText(text);
@@ -2925,9 +3017,21 @@ document.getElementById('ssMicBtn').addEventListener('click', toggleMic);
    the same star-topology broadcast as typing indicators (send to host,
    host relays to everyone else). Each speaker gets one caption line that
    updates live as interim results come in and clears itself a few seconds
-   after their sentence finishes. */
+   after their sentence finishes.
+
+   Mobile browsers silently end a recognition session after a few seconds
+   of quiet even with continuous:true, so we auto-restart on 'onend'. Some
+   Android builds play a short system tone on every SpeechRecognition
+   start — that's the platform's own voice-input cue, not something a web
+   page can suppress, but restarting immediately (or overlapping a start
+   with a not-yet-finished stop) makes it fire more often and can throw an
+   'already started' error. A small delay before each restart, plus an id
+   guard so a stale timer can never restart a session the user already
+   turned off, keeps restarts to the minimum the browser actually needs. */
 let captionsOn = false;
 let captionRecognition = null;
+let captionRecognitionId = 0;   // bumped on every stop, so stale restart timers no-op
+let captionRestartTimer = null;
 let captionEls = new Map(); // name -> {mainEl, ssEl, timeout}
 
 function canUseCaptions(){
@@ -2943,18 +3047,15 @@ function setCaptionButtonsState(on){
   });
   renderIcons();
 }
-function toggleCaptions(){
-  if(captionsOn){ stopCaptions(); return; }
-  if(!canUseCaptions()){
-    addMessage({system:true, text:"This browser doesn't support live captions (speech-to-text)."});
-    return;
-  }
+function startCaptionRecognition(){
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const rec = new Recognition();
+  const myId = captionRecognitionId;
   rec.continuous = true;
   rec.interimResults = true;
   try{ rec.lang = navigator.language || 'en-US'; }catch(e){}
   rec.onresult = (e)=>{
+    if(myId !== captionRecognitionId) return;
     let text = '';
     let isFinal = false;
     for(let i = e.resultIndex; i < e.results.length; i++){
@@ -2967,6 +3068,7 @@ function toggleCaptions(){
     sendCaptionPayload(text, isFinal);
   };
   rec.onerror = (e)=>{
+    if(myId !== captionRecognitionId) return;
     if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
       addMessage({system:true, text:'Microphone access was blocked. Allow mic access in your browser settings to use captions.'});
       stopCaptions();
@@ -2974,16 +3076,32 @@ function toggleCaptions(){
     // other errors (e.g. 'no-speech') are routine — onend below restarts it
   };
   rec.onend = ()=>{
-    if(captionsOn){ try{ rec.start(); }catch(err){} }
+    if(myId !== captionRecognitionId || !captionsOn) return;
+    clearTimeout(captionRestartTimer);
+    captionRestartTimer = setTimeout(()=>{
+      if(myId !== captionRecognitionId || !captionsOn) return;
+      startCaptionRecognition();
+    }, 300);
   };
   try{ rec.start(); }
-  catch(e){ addMessage({system:true, text:"Couldn't start captions."}); return; }
+  catch(e){ /* a start-while-stopping race — the pending restart timer above will retry */ return; }
   captionRecognition = rec;
+}
+function toggleCaptions(){
+  if(captionsOn){ stopCaptions(); return; }
+  if(!canUseCaptions()){
+    addMessage({system:true, text:"This browser doesn't support live captions (speech-to-text)."});
+    return;
+  }
   captionsOn = true;
+  captionRecognitionId++;
   setCaptionButtonsState(true);
+  startCaptionRecognition();
 }
 function stopCaptions(){
   captionsOn = false;
+  captionRecognitionId++; // invalidates any in-flight restart timer or stale callback
+  clearTimeout(captionRestartTimer);
   setCaptionButtonsState(false);
   if(captionRecognition){
     try{ captionRecognition.onend = null; captionRecognition.stop(); }catch(e){}
@@ -3025,9 +3143,16 @@ function clearCaption(name){
   const entry = captionEls.get(name);
   if(!entry) return;
   clearTimeout(entry.timeout);
-  entry.mainEl.remove();
-  entry.ssEl.remove();
   captionEls.delete(name);
+  [entry.mainEl, entry.ssEl].forEach(el=>{
+    if(!el) return;
+    el.style.animation = 'none';
+    el.classList.add('caption-out');
+  });
+  setTimeout(()=>{
+    entry.mainEl.remove();
+    entry.ssEl.remove();
+  }, 260);
 }
 document.getElementById('captionsBtn').addEventListener('click', toggleCaptions);
 document.getElementById('ssCaptionsBtn').addEventListener('click', toggleCaptions);

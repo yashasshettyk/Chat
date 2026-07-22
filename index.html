@@ -643,16 +643,16 @@
 
       <div class="field">
         <label>Your name</label>
-        <input type="text" id="startName" placeholder="e.g. Kiran" maxlength="24">
+        <input type="text" id="startName" placeholder="e.g. Kiran" maxlength="24" name="displayName" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
       </div>
       <div class="field">
         <label>Room name <span class="optional">(optional)</span></label>
-        <input type="text" id="startRoomName" placeholder="e.g. Movie night" maxlength="30">
+        <input type="text" id="startRoomName" placeholder="e.g. Movie night" maxlength="30" name="roomLabel" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
       </div>
       <div class="field">
         <label>Security code</label>
         <div class="row">
-          <input type="text" class="mono" id="startCode" placeholder="Set a passcode" maxlength="20">
+          <input type="text" class="mono" id="startCode" placeholder="Set a passcode" maxlength="20" name="securityPhrase" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
           <button class="inline-btn" id="genCode">Generate</button>
         </div>
         <p class="hint">Share this code with people separately from the room code (e.g. in person or a different app) — that's what keeps this end‑to‑end encrypted.</p>
@@ -674,15 +674,15 @@
 
       <div class="field">
         <label>Your name</label>
-        <input type="text" id="joinName" placeholder="e.g. Priya" maxlength="24">
+        <input type="text" id="joinName" placeholder="e.g. Priya" maxlength="24" name="displayName" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
       </div>
       <div class="field">
         <label>Room code</label>
-        <input type="text" class="mono" id="joinRoom" placeholder="XXXXXX" maxlength="6">
+        <input type="text" class="mono" id="joinRoom" placeholder="XXXXXX" maxlength="6" name="roomIdentifier" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
       </div>
       <div class="field">
         <label>Security code</label>
-        <input type="text" class="mono" id="joinCode" placeholder="Passcode">
+        <input type="text" class="mono" id="joinCode" placeholder="Passcode" name="securityPhrase" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
       </div>
       <p class="error" id="joinError"></p>
       <button class="btn btn-primary" id="joinBtn">Join room</button>
@@ -723,9 +723,6 @@
     <div class="header-right">
       <div class="icon-btn" id="micBtn" title="Turn on mic (voice chat)">
         <span class="material-symbols-outlined" style="font-size:16px;">mic_off</span>
-      </div>
-      <div class="icon-btn" id="captionsBtn" title="Turn on captions">
-        <span class="material-symbols-outlined" style="font-size:16px;">closed_caption</span>
       </div>
       <div class="icon-btn" id="sketchBtn" title="Sketch board">
         <span class="material-symbols-outlined" style="font-size:16px;">draw</span>
@@ -805,7 +802,7 @@
 
   <div class="swatch-label">Room name</div>
   <div class="row">
-    <input type="text" id="menuRoomNameInput" placeholder="e.g. Movie night" maxlength="30">
+    <input type="text" id="menuRoomNameInput" placeholder="e.g. Movie night" maxlength="30" name="roomLabel" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
     <button class="inline-btn" id="saveRoomName">Save</button>
   </div>
 
@@ -3235,6 +3232,7 @@ function handleScreenShareSignal(obj, fromConnId){
    depends on who is or isn't sharing their screen. */
 let micStream = null;
 let micOn = false;
+let captionAutoStartTimer = null;
 let myLevelMeterStop = null;
 let micOutgoingCalls = new Map();   // real peer id -> MediaConnection, only while my mic is on
 let micIncoming = new Map();        // real peer id -> {audioEl}
@@ -3323,14 +3321,36 @@ async function toggleMic(){
   setMicButtonsState(true);
   callAllPeersWithMic();
   myLevelMeterStop = startLevelMeter(micStream, (lvl)=> setCaptionRowLevel(state.myName, lvl));
+  // Captions now piggyback on the mic button instead of needing their own
+  // gesture. Speech recognition still has to open its own independent mic
+  // grant (the browser gives no way to feed it the WebRTC stream instead),
+  // so we wait a moment after the call mic is already flowing before asking
+  // for the second grant — starting both at the exact same instant is what
+  // most often trips up Android's single-active-recording-session limit and
+  // makes the mic indicator blip. If a device still can't hold both open,
+  // startCaptionRecognition's own error/backoff handling below will notice
+  // and give up cleanly rather than looping forever.
+  if(canUseCaptions()){
+    clearTimeout(captionAutoStartTimer);
+    captionAutoStartTimer = setTimeout(()=>{
+      if(!micOn) return;
+      if(isMobileDevice() && !captionsMobileNoticeShown){
+        captionsMobileNoticeShown = true;
+        addMessage({system:true, text:'Live captions are on. On some phones this can make the mic indicator flicker briefly while it restarts listening — that\u2019s normal and your call audio stays connected.'});
+      }
+      startCaptions();
+    }, 500);
+  }
 }
 function stopMic(){
   micOn = false;
   setMicButtonsState(false);
+  clearTimeout(captionAutoStartTimer);
   if(myLevelMeterStop){ myLevelMeterStop(); myLevelMeterStop = null; }
   if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
   micOutgoingCalls.forEach(call=>{ try{ call.close(); }catch(e){} });
   micOutgoingCalls.clear();
+  stopCaptions();
 }
 function callAllPeersWithMic(){
   if(!micOn || !micStream || !state.peer) return;
@@ -3381,26 +3401,7 @@ function removeMicIncoming(peerId){
 }
 document.getElementById('micBtn').addEventListener('click', toggleMic);
 document.getElementById('ssMicBtn').addEventListener('click', toggleMic);
-function setCaptionsBtnState(on){
-  const btn = document.getElementById('captionsBtn');
-  if(!btn) return;
-  btn.classList.toggle('captions-active', on);
-  btn.title = on ? 'Turn off captions' : 'Turn on captions';
-}
 let captionsMobileNoticeShown = false;
-document.getElementById('captionsBtn').addEventListener('click', ()=>{
-  if(captionsOn){ stopCaptions(); return; }
-  if(!canUseCaptions()){
-    addMessage({system:true, text:"This browser doesn't support live captions."});
-    return;
-  }
-  if(isMobileDevice() && !captionsMobileNoticeShown){
-    captionsMobileNoticeShown = true;
-    addMessage({system:true, text:'Captions are on. On some phones this can make the mic indicator flicker briefly while it restarts listening — that\u2019s normal and your call audio stays connected.'});
-  }
-  startCaptions();
-  setCaptionsBtnState(true);
-});
 
 /* ---------------- live captions (speech-to-text) ----------------
    Entirely local: runs the browser's own SpeechRecognition on your own
@@ -3433,14 +3434,15 @@ function canUseCaptions(){
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 }
 // Speech recognition needs its own independent getUserMedia grant, separate
-// from the WebRTC call mic. On mobile browsers that session silently ends
-// itself every few seconds of quiet and restarts — and each restart cycles
-// the device's mic indicator, which shows up to the user as "the mic keeps
-// opening and closing" even though the actual call audio never drops. That's
-// why captions are a separate opt-in toggle (captionsBtn) rather than an
-// automatic side effect of the mic button: people who don't want that
-// flicker never see it, and people who want captions can turn them on
-// knowingly (they get a one-time heads-up on mobile the first time).
+// from the WebRTC call mic — the Web Speech API gives no way to hand it an
+// existing MediaStream, so a second mic grant is unavoidable in a browser-
+// only, no-backend app. On mobile that recognition session silently ends
+// itself every few seconds of quiet and restarts, and each restart cycles
+// the device's mic indicator, which can look like "the mic keeps opening
+// and closing" even though the actual call audio never drops. Captions now
+// start automatically a moment after the mic button turns on (see
+// toggleMic) rather than needing their own gesture; people get a one-time
+// heads-up about the flicker on mobile the first time it kicks in.
 function isMobileDevice(){
   return /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent || '')
     || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
@@ -3522,7 +3524,6 @@ function stopCaptions(){
     captionRecognition = null;
   }
   clearCaption(state.myName);
-  setCaptionsBtnState(false);
 }
 async function sendCaptionPayload(text, final){
   if(!state.key) return;

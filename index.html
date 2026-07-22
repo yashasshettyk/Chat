@@ -365,8 +365,17 @@
   .ss-live-dot{ width:8px; height:8px; border-radius:50%; background:#e0575c; animation:pulse 1.4s ease-in-out infinite; }
   .ss-close{ background:rgba(255,255,255,0.1); border:none; color:#fff; width:34px; height:34px; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .ss-video-wrap{ flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:10px; }
-  .ss-video-wrap video{ max-width:100%; max-height:100%; border-radius:8px; background:#000; }
-  .ss-empty{ color:#8b93a0; font-family:'Inter',sans-serif; font-size:13.5px; text-align:center; max-width:280px; line-height:1.6; }
+  .ss-empty{ color:#8b93a0; font-family:'Inter',sans-serif; font-size:13.5px; text-align:center; max-width:280px; line-height:1.6; margin:auto; }
+  .ss-grid{ flex:1; display:none; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:12px; padding:14px; overflow-y:auto; align-content:start; }
+  .ss-grid.active{ display:grid; }
+  .ss-tile{ position:relative; background:#000; border-radius:12px; overflow:hidden; display:flex; align-items:center; justify-content:center; aspect-ratio:16/9; }
+  .ss-tile video{ display:block; max-width:100%; max-height:100%; transition:transform .2s ease, max-width .2s ease, max-height .2s ease; }
+  .ss-tile-label{ position:absolute; top:9px; left:9px; background:rgba(0,0,0,0.55); color:#fff; font-size:11.5px; padding:4px 10px; border-radius:20px; font-family:'Space Grotesk',sans-serif; font-weight:500; display:flex; align-items:center; gap:6px; }
+  .ss-tile-label .you-tag{ opacity:0.7; font-weight:400; }
+  .ss-tile-controls{ position:absolute; bottom:9px; right:9px; display:flex; gap:6px; }
+  .ss-rotate-btn{ width:30px; height:30px; border-radius:8px; background:rgba(0,0,0,0.55); border:none; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .ss-rotate-btn:hover{ background:rgba(0,0,0,0.75); }
+  .ss-tile.mine{ outline:2px solid rgba(255,255,255,0.25); }
 
   /* ---------- mobile: full-screen chat, WhatsApp-style ---------- */
   @media (max-width:700px){
@@ -642,8 +651,8 @@
     <button class="ss-close" id="ssCloseBtn">✕</button>
   </div>
   <div class="ss-video-wrap">
-    <video id="ssVideo" autoplay playsinline style="display:none;"></video>
-    <div class="ss-empty" id="ssEmpty">No one is sharing their screen yet. Tap the screen-share icon in the header to start sharing yours, or wait for someone else to share.<br><br><span style="opacity:0.7;">This is view-only — for privacy and security, a browser can never let one device remote-control another's mouse, keyboard, or settings. Screen sharing just lets you see and talk someone through it.</span></div>
+    <div class="ss-grid" id="ssGrid"></div>
+    <div class="ss-empty" id="ssEmpty">No one is sharing their screen yet. Anyone in the room can tap the screen-share icon in the header to start — everyone else sees it live, and several people can share at once.<br><br><span style="opacity:0.7;">This is view-only — for privacy and security, a browser can never let one device remote-control another's mouse, keyboard, or settings. Screen sharing just lets you see and talk someone through it.</span></div>
   </div>
 </div>
 
@@ -2056,24 +2065,96 @@ document.getElementById('fileInput').addEventListener('change', (e)=>{
   files.forEach(f=> queueFileSend(f));
 });
 
-/* ---------------- screen sharing (view-only — see note in the UI) ---------------- */
+/* ---------------- screen sharing (view-only — see note in the UI) ----------------
+   Anyone in the room can share, and several people can share at once. Sharing
+   is a full mesh: the sharer calls every other member directly by their real
+   PeerJS id (the host's id is deterministic from the room code; joiners'
+   real ids are exactly the keys the host already hands out in the roster),
+   so this isn't limited to "host shares to joiners" — any joiner can share
+   straight to any other joiner too, relayed through nobody. */
 let ssLocalStream = null;
-let ssActiveCalls = new Map(); // connId -> MediaConnection (host: outgoing to each peer; joiner: outgoing to host)
-let ssIncomingCall = null;
+let ssOutgoingCalls = new Map();   // real peer id -> MediaConnection, only while I'm sharing
+let ssTiles = new Map();           // key ('me' or real peer id) -> {video, name, rotation, wrap}
 let ssIsSharing = false;
-let ssRemoteSharerName = null;
 
-function openScreenShareModal(){
-  document.getElementById('screenShareModal').classList.add('active');
+function getHostRealId(){ return 'cipher-' + state.roomCode.toLowerCase(); }
+function getAllOtherRealPeerIds(){
+  const ids = new Set();
+  if(state.isHost){
+    state.conns.forEach((_, connId)=> ids.add(connId));
+  } else {
+    ids.add(getHostRealId());
+    state.members.forEach((name, id)=>{ if(id !== 'host' && id !== state.myId) ids.add(id); });
+  }
+  return [...ids];
 }
-function closeScreenShareModal(){
-  document.getElementById('screenShareModal').classList.remove('active');
+function resolvePeerName(peerId){
+  if(peerId === getHostRealId()) return state.members.get('host') || 'Host';
+  return state.members.get(peerId) || 'Someone';
 }
+
+function openScreenShareModal(){ document.getElementById('screenShareModal').classList.add('active'); }
+function closeScreenShareModal(){ document.getElementById('screenShareModal').classList.remove('active'); }
 document.getElementById('screenShareBtn').addEventListener('click', async ()=>{
   openScreenShareModal();
   if(!ssIsSharing) await startScreenShare();
 });
 document.getElementById('ssCloseBtn').addEventListener('click', closeScreenShareModal);
+
+function updateSsChrome(){
+  const anySharing = ssTiles.size > 0;
+  document.getElementById('ssGrid').classList.toggle('active', anySharing);
+  document.getElementById('ssEmpty').style.display = anySharing ? 'none' : 'block';
+  document.getElementById('ssLiveDot').style.display = anySharing ? 'inline-block' : 'none';
+  if(!anySharing){ document.getElementById('ssTitle').textContent = 'Screen share'; return; }
+  if(ssTiles.size === 1){
+    const only = [...ssTiles.values()][0];
+    document.getElementById('ssTitle').textContent = only.isMine ? 'You are sharing your screen' : (only.name + ' is sharing their screen');
+  } else {
+    document.getElementById('ssTitle').textContent = ssTiles.size + ' people are sharing';
+  }
+}
+
+function createTile(key, name, isMine){
+  const grid = document.getElementById('ssGrid');
+  const tile = document.createElement('div');
+  tile.className = 'ss-tile' + (isMine ? ' mine' : '');
+  tile.innerHTML = `
+    <video autoplay playsinline ${isMine ? 'muted' : ''}></video>
+    <div class="ss-tile-label">${escapeHtml(name)}${isMine ? ' <span class="you-tag">(you)</span>' : ''}</div>
+    <div class="ss-tile-controls">
+      <button class="ss-rotate-btn" title="Rotate view">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/></svg>
+      </button>
+    </div>`;
+  grid.appendChild(tile);
+  const entry = { video: tile.querySelector('video'), name, isMine, rotation: 0, wrap: tile };
+  tile.querySelector('.ss-rotate-btn').addEventListener('click', ()=>{
+    entry.rotation = (entry.rotation + 90) % 360;
+    applyTileRotation(entry);
+  });
+  ssTiles.set(key, entry);
+  return entry;
+}
+function removeTile(key){
+  const entry = ssTiles.get(key);
+  if(!entry) return;
+  entry.wrap.remove();
+  ssTiles.delete(key);
+  updateSsChrome();
+}
+function applyTileRotation(entry){
+  const v = entry.video;
+  v.style.transform = `rotate(${entry.rotation}deg)`;
+  if(entry.rotation === 90 || entry.rotation === 270){
+    const w = entry.wrap.clientWidth, h = entry.wrap.clientHeight;
+    v.style.maxWidth = h + 'px';
+    v.style.maxHeight = w + 'px';
+  } else {
+    v.style.maxWidth = '100%';
+    v.style.maxHeight = '100%';
+  }
+}
 
 async function startScreenShare(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){
@@ -2086,70 +2167,51 @@ async function startScreenShare(){
     return; // user cancelled the picker
   }
   ssIsSharing = true;
-  document.getElementById('ssTitle').textContent = 'You are sharing your screen';
-  document.getElementById('ssLiveDot').style.display = 'inline-block';
-  document.getElementById('ssEmpty').style.display = 'none';
-  const video = document.getElementById('ssVideo');
-  video.srcObject = ssLocalStream; video.muted = true; video.style.display = 'block';
+  const tile = createTile('me', state.myName, true);
+  tile.video.srcObject = ssLocalStream;
+  updateSsChrome();
 
   const announce = await encryptObj(state.key, {type:'ss-signal', action:'start', name: state.myName});
   sendPayloadToPeers(announce);
 
-  // call everyone we're connected to directly
-  if(state.isHost){
-    state.conns.forEach(({conn}, connId)=>{ callPeerWithScreenShare(connId); });
-  } else if(state.hostConn){
-    callPeerWithScreenShare(state.hostConn.peer);
-  }
+  getAllOtherRealPeerIds().forEach(peerId=>{
+    const call = state.peer.call(peerId, ssLocalStream);
+    if(call) ssOutgoingCalls.set(peerId, call);
+  });
 
   ssLocalStream.getVideoTracks()[0].addEventListener('ended', stopScreenShare);
-}
-function callPeerWithScreenShare(peerId){
-  if(!ssLocalStream) return;
-  const call = state.peer.call(peerId, ssLocalStream);
-  if(call) ssActiveCalls.set(peerId, call);
 }
 async function stopScreenShare(){
   if(!ssIsSharing) return;
   ssIsSharing = false;
   if(ssLocalStream){ ssLocalStream.getTracks().forEach(t=>t.stop()); ssLocalStream = null; }
-  ssActiveCalls.forEach(call=>{ try{ call.close(); }catch(e){} });
-  ssActiveCalls.clear();
-  const video = document.getElementById('ssVideo');
-  video.srcObject = null; video.style.display = 'none';
-  document.getElementById('ssLiveDot').style.display = 'none';
-  document.getElementById('ssTitle').textContent = 'Screen share';
-  document.getElementById('ssEmpty').style.display = 'block';
+  ssOutgoingCalls.forEach(call=>{ try{ call.close(); }catch(e){} });
+  ssOutgoingCalls.clear();
+  removeTile('me');
   const announce = await encryptObj(state.key, {type:'ss-signal', action:'stop', name: state.myName});
   sendPayloadToPeers(announce);
 }
 function handleIncomingCall(call){
   call.answer(); // view-only: we never send our own stream back automatically
+  const peerId = call.peer;
+  const name = resolvePeerName(peerId);
   call.on('stream', (remoteStream)=>{
-    const video = document.getElementById('ssVideo');
-    video.srcObject = remoteStream; video.style.display = 'block';
-    document.getElementById('ssEmpty').style.display = 'none';
-    document.getElementById('ssLiveDot').style.display = 'inline-block';
-    document.getElementById('ssTitle').textContent = (ssRemoteSharerName || 'Someone') + ' is sharing their screen';
+    let entry = ssTiles.get(peerId);
+    if(!entry) entry = createTile(peerId, name, false);
+    entry.video.srcObject = remoteStream;
+    updateSsChrome();
     openScreenShareModal();
   });
-  call.on('close', ()=>{
-    const video = document.getElementById('ssVideo');
-    video.srcObject = null; video.style.display = 'none';
-    document.getElementById('ssLiveDot').style.display = 'none';
-    document.getElementById('ssTitle').textContent = 'Screen share';
-    document.getElementById('ssEmpty').style.display = 'block';
-  });
+  call.on('close', ()=> removeTile(peerId));
 }
 function handleScreenShareSignal(obj, fromConnId){
+  // Mainly drives the chat log / title text; the actual video tiles are
+  // driven by the WebRTC calls themselves (handleIncomingCall / stopScreenShare),
+  // since those are the source of truth for who's really still streaming.
   if(obj.action === 'start'){
-    ssRemoteSharerName = obj.name;
+    addMessage({system:true, text: (obj.name===state.myName ? 'You' : obj.name) + ' started sharing their screen'});
   } else if(obj.action === 'stop'){
-    const video = document.getElementById('ssVideo');
-    video.srcObject = null; video.style.display = 'none';
-    document.getElementById('ssLiveDot').style.display = 'none';
-    document.getElementById('ssTitle').textContent = 'Screen share';
-    document.getElementById('ssEmpty').style.display = 'block';
+    addMessage({system:true, text: (obj.name===state.myName ? 'You' : obj.name) + ' stopped sharing their screen'});
   }
 }
 

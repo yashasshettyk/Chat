@@ -8,14 +8,14 @@
 <meta property="og:url" content="https://chatsafely.vercel.app/">
 <meta property="og:title" content="Cipher — private chat">
 <meta property="og:description" content="A private, end-to-end encrypted chat room.">
-<meta property="og:image" content="https://chatsafely.vercel.app/thumbnailnew.jpg">
+<meta property="og:image" content="https://chatsafely.vercel.app/thumbnail.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="800">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Cipher — private chat">
 <meta name="twitter:description" content="A private, end-to-end encrypted chat room.">
-<meta name="twitter:image" content="https://chatsafely.vercel.app/thumbnailnew.jpg">
+<meta name="twitter:image" content="https://chatsafely.vercel.app/thumbnail.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -242,6 +242,8 @@
   .icon-btn:hover{ color:var(--accent); border-color:var(--accent); }
   .icon-btn.leave-btn:hover{ color:var(--danger); border-color:var(--danger); }
   .icon-btn.mic-on{ color:var(--online); border-color:var(--online); }
+  .icon-btn-share{ width:46px; height:46px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border); color:var(--muted); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+  .icon-btn-share:hover{ color:var(--accent); border-color:var(--accent); }
 
   /* ---------- swipe-to-reply ---------- */
   .msg{ touch-action:pan-y; }
@@ -696,6 +698,7 @@
       </div>
       <div class="row">
         <button class="btn btn-primary" id="copyInviteLinkWaiting" style="flex:1;">Copy invite link</button>
+        <button class="icon-btn-share" id="shareInviteLinkWaiting" title="Share invite link"><span class="material-symbols-outlined" style="font-size:20px;">share</span></button>
         <button class="btn btn-ghost" id="showQrWaiting" style="flex:1; margin-top:0;">Show QR code</button>
       </div>
       <p class="hint">Anyone who opens that link, or scans the QR code, just types their name — no codes to enter.</p>
@@ -817,6 +820,7 @@
 
   <div class="row" style="margin-top:14px;">
     <button class="btn btn-primary" id="copyInviteLink" style="flex:1;">Copy invite link</button>
+    <button class="icon-btn-share" id="shareInviteLinkMenu" title="Share invite link"><span class="material-symbols-outlined" style="font-size:20px;">share</span></button>
     <button class="btn btn-ghost" id="showQrMenu" style="flex:1; margin-top:0;">Show QR code</button>
   </div>
   <p class="hint">Anyone with this link, or who scans the QR code, can enter their name and join instantly.</p>
@@ -2009,6 +2013,33 @@ document.getElementById('copyRoom').addEventListener('click', ()=>{ navigator.cl
 document.getElementById('copyCode').addEventListener('click', ()=>{ navigator.clipboard.writeText(document.getElementById('startCode').value); toastBtn('copyCode','Copied!'); });
 document.getElementById('copyInviteLinkWaiting').addEventListener('click', ()=>{ navigator.clipboard.writeText(buildInviteLink()); toastBtn('copyInviteLinkWaiting','Link copied!'); });
 document.getElementById('copyInviteLink').addEventListener('click', ()=>{ navigator.clipboard.writeText(buildInviteLink()); toastBtn('copyInviteLink','Link copied!'); });
+/* ---------------- share invite link (native share sheet, with copy fallback) ----------------
+   navigator.share opens the OS share sheet (WhatsApp, Messages, Mail, etc.) — supported on
+   most mobile browsers and some desktop browsers (e.g. Safari, newer Chrome/Edge). Where it's
+   unavailable, or the user dismisses the share sheet, fall back to copying the link instead. */
+function toastIconBtn(id, iconName){
+  const btn = document.getElementById(id);
+  const icon = btn.querySelector('.material-symbols-outlined');
+  const orig = icon.textContent;
+  icon.textContent = iconName;
+  setTimeout(()=>{ icon.textContent = orig; }, 1200);
+}
+async function shareInviteLink(btnId){
+  const link = buildInviteLink();
+  if(navigator.share){
+    try{
+      await navigator.share({ title: 'Join my Cipher chat', text: 'Join my private, end-to-end encrypted chat room:', url: link });
+    }catch(e){
+      // user cancelled the share sheet, or the share failed silently — no action needed
+    }
+    return;
+  }
+  // no native share support on this browser — copy the link instead
+  navigator.clipboard.writeText(link);
+  toastIconBtn(btnId, 'check');
+}
+document.getElementById('shareInviteLinkWaiting').addEventListener('click', ()=> shareInviteLink('shareInviteLinkWaiting'));
+document.getElementById('shareInviteLinkMenu').addEventListener('click', ()=> shareInviteLink('shareInviteLinkMenu'));
 document.getElementById('copyMenuRoomCode').addEventListener('click', ()=>{ navigator.clipboard.writeText(state.roomCode); toastBtn('copyMenuRoomCode','Copied!'); });
 document.getElementById('copyMenuSecCode').addEventListener('click', ()=>{ navigator.clipboard.writeText(state.securityCode); toastBtn('copyMenuSecCode','Copied!'); });
 function toastBtn(id, txt){

@@ -143,6 +143,10 @@
   html[data-pattern="diagonal"] .messages{ background-image:repeating-linear-gradient(45deg, var(--border) 0 1px, transparent 1px 14px); }
 
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  button, .icon-btn, .icon-btn *, .inline-btn, .sheet-action-btn, .material-symbols-outlined{
+    -webkit-user-select:none; -moz-user-select:none; user-select:none;
+    -webkit-touch-callout:none;
+  }
   html,body{height:100%;}
   body{
     margin:0;
@@ -242,6 +246,7 @@
   .icon-btn:hover{ color:var(--accent); border-color:var(--accent); }
   .icon-btn.leave-btn:hover{ color:var(--danger); border-color:var(--danger); }
   .icon-btn.mic-on{ color:var(--online); border-color:var(--online); }
+  .icon-btn.captions-active{ color:var(--accent); border-color:var(--accent); }
 
   /* ---------- swipe-to-reply ---------- */
   .msg{ touch-action:pan-y; }
@@ -717,6 +722,9 @@
     <div class="header-right">
       <div class="icon-btn" id="micBtn" title="Turn on mic (voice chat)">
         <span class="material-symbols-outlined" style="font-size:16px;">mic_off</span>
+      </div>
+      <div class="icon-btn" id="captionsBtn" title="Turn on captions">
+        <span class="material-symbols-outlined" style="font-size:16px;">closed_caption</span>
       </div>
       <div class="icon-btn" id="sketchBtn" title="Sketch board">
         <span class="material-symbols-outlined" style="font-size:16px;">draw</span>
@@ -3300,17 +3308,6 @@ async function toggleMic(){
   setMicButtonsState(true);
   callAllPeersWithMic();
   myLevelMeterStop = startLevelMeter(micStream, (lvl)=> setCaptionRowLevel(state.myName, lvl));
-  // Captions are a visible-by-default side effect of talking — no separate
-  // toggle to hunt for. On mobile, speech recognition repeatedly
-  // stops/restarts itself in the background, which can cycle the device
-  // mic indicator and look like the mic randomly turning on and off, even
-  // though the actual call audio stays connected the whole time — but
-  // skipping captions entirely on mobile meant a mobile speaker's captions
-  // never reached anyone else, so we start it there too and rely on the
-  // restart backoff above to keep the flicker to a minimum. If this
-  // browser can't do speech recognition, startCaptions() just quietly
-  // no-ops anyway.
-  startCaptions();
 }
 function stopMic(){
   micOn = false;
@@ -3319,7 +3316,6 @@ function stopMic(){
   if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
   micOutgoingCalls.forEach(call=>{ try{ call.close(); }catch(e){} });
   micOutgoingCalls.clear();
-  stopCaptions();
 }
 function callAllPeersWithMic(){
   if(!micOn || !micStream || !state.peer) return;
@@ -3370,6 +3366,26 @@ function removeMicIncoming(peerId){
 }
 document.getElementById('micBtn').addEventListener('click', toggleMic);
 document.getElementById('ssMicBtn').addEventListener('click', toggleMic);
+function setCaptionsBtnState(on){
+  const btn = document.getElementById('captionsBtn');
+  if(!btn) return;
+  btn.classList.toggle('captions-active', on);
+  btn.title = on ? 'Turn off captions' : 'Turn on captions';
+}
+let captionsMobileNoticeShown = false;
+document.getElementById('captionsBtn').addEventListener('click', ()=>{
+  if(captionsOn){ stopCaptions(); return; }
+  if(!canUseCaptions()){
+    addMessage({system:true, text:"This browser doesn't support live captions."});
+    return;
+  }
+  if(isMobileDevice() && !captionsMobileNoticeShown){
+    captionsMobileNoticeShown = true;
+    addMessage({system:true, text:'Captions are on. On some phones this can make the mic indicator flicker briefly while it restarts listening — that\u2019s normal and your call audio stays connected.'});
+  }
+  startCaptions();
+  setCaptionsBtnState(true);
+});
 
 /* ---------------- live captions (speech-to-text) ----------------
    Entirely local: runs the browser's own SpeechRecognition on your own
@@ -3405,9 +3421,11 @@ function canUseCaptions(){
 // from the WebRTC call mic. On mobile browsers that session silently ends
 // itself every few seconds of quiet and restarts — and each restart cycles
 // the device's mic indicator, which shows up to the user as "the mic keeps
-// opening and closing" even though the actual call audio never drops. On
-// desktop this restart is invisible/inaudible, so only mobile needs to opt
-// out of the auto-on-when-you-talk behavior.
+// opening and closing" even though the actual call audio never drops. That's
+// why captions are a separate opt-in toggle (captionsBtn) rather than an
+// automatic side effect of the mic button: people who don't want that
+// flicker never see it, and people who want captions can turn them on
+// knowingly (they get a one-time heads-up on mobile the first time).
 function isMobileDevice(){
   return /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent || '')
     || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
@@ -3473,7 +3491,7 @@ function startCaptionRecognition(){
 }
 function startCaptions(){
   if(captionsOn) return;
-  if(!canUseCaptions()) return; // silently skip on unsupported browsers — captions are a bonus of the mic, not a separate ask
+  if(!canUseCaptions()) return; // silently no-op on unsupported browsers
   captionsOn = true;
   captionRecognitionId++;
   captionFastFailStreak = 0;
@@ -3489,6 +3507,7 @@ function stopCaptions(){
     captionRecognition = null;
   }
   clearCaption(state.myName);
+  setCaptionsBtnState(false);
 }
 async function sendCaptionPayload(text, final){
   if(!state.key) return;

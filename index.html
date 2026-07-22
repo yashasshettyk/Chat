@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
 <style>
   /* ============ THEMES ============
      Each user picks their own theme + chat background locally (saved in
@@ -235,6 +236,11 @@
   .msg.has-image .time{ margin:6px 6px 2px; }
   .msg-img{ display:block; max-width:100%; max-height:280px; border-radius:11px; cursor:zoom-in; }
   .sys{ align-self:center; font-size:12px; color:var(--muted); background:var(--surface-2); padding:5px 12px; border-radius:20px; text-align:center; }
+  .msg.emoji-only{ background:transparent !important; border:none !important; padding:2px 4px !important; box-shadow:none !important; max-width:88%; }
+  .msg.emoji-only .who{ margin-left:2px; }
+  .msg.emoji-only .emoji-big{ font-size:56px; line-height:1.1; }
+  .msg.emoji-only .emoji-anim{ width:72px; height:72px; }
+  .msg.emoji-only .time{ opacity:0.65; }
   .msg.pressing{ transform:scale(0.97); transition:transform .15s ease; }
   .msg.armed{ transform:scale(0.97); box-shadow:0 10px 26px -6px rgba(20,30,50,0.22); transition:transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease; cursor:grab; }
   .msg.dragging{ cursor:grabbing; z-index:60; box-shadow:0 18px 40px -10px rgba(20,30,50,0.4), 0 2px 0 rgba(255,255,255,0.5) inset; transition:none !important; touch-action:none; }
@@ -255,9 +261,14 @@
   .msg.removing{ animation:msgOut .18s ease forwards; }
   @keyframes msgOut{ to{ opacity:0; transform:scale(0.85); } }
 
-  .file-chip{ display:flex; align-items:center; gap:9px; border-radius:11px; padding:9px 11px; color:inherit; text-decoration:none; font-size:13px; font-weight:500; }
+  .file-chip{ display:flex; align-items:center; gap:10px; border-radius:11px; padding:9px 11px; color:inherit; text-decoration:none; font-size:13px; font-weight:500; min-width:0; max-width:min(72vw, 260px); }
   .msg.me .file-chip{ background:rgba(0,0,0,0.16); border:1px solid rgba(0,0,0,0.1); }
   .msg.them .file-chip{ background:var(--surface-2); border:1px solid var(--bubble-them-border); }
+  .file-chip-icon{ flex-shrink:0; width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; background:var(--accent-soft); color:var(--accent); }
+  .msg.me .file-chip-icon{ background:rgba(255,255,255,0.18); color:inherit; }
+  .file-chip-meta{ display:flex; flex-direction:column; min-width:0; flex:1; gap:2px; }
+  .file-chip-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .file-chip-size{ font-size:11px; font-weight:500; opacity:0.65; letter-spacing:0.2px; }
 
   .progress-msg{ width:180px; }
   .progress-box{ width:100%; height:110px; background:linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
@@ -373,14 +384,35 @@
   .ss-tile-label{ position:absolute; top:9px; left:9px; background:rgba(0,0,0,0.55); color:#fff; font-size:11.5px; padding:4px 10px; border-radius:20px; font-family:'Space Grotesk',sans-serif; font-weight:500; display:flex; align-items:center; gap:6px; }
   .ss-tile-label .you-tag{ opacity:0.7; font-weight:400; }
   .ss-tile-controls{ position:absolute; bottom:9px; right:9px; display:flex; gap:6px; }
+  /* When a landscape share is rotated while the *viewer's* phone is still
+     physically portrait, blow the tile up to a fixed, full-viewport box
+     whose own width/height are pre-swapped (100vh x 100vw) and then rotate
+     that box — so the video fills the screen edge-to-edge in landscape,
+     the same "force-landscape" trick games use, instead of just spinning
+     a small video in place. */
+  .ss-tile.fs-rotated{
+    position:fixed; top:50%; left:50%; width:100vh; height:100vw;
+    transform:translate(-50%,-50%) rotate(90deg); transform-origin:center;
+    z-index:200; border-radius:0; aspect-ratio:auto; background:#000;
+  }
+  .ss-tile.fs-rotated.rot270{ transform:translate(-50%,-50%) rotate(-90deg); }
+  .ss-tile.fs-rotated video{ width:100%; height:100%; max-width:100%; max-height:100%; object-fit:contain; transform:none !important; }
+  .ss-tile.fs-rotated .ss-tile-label{ top:calc(9px + env(safe-area-inset-top)); }
+  .ss-fs-exit{ position:absolute; top:9px; right:9px; width:30px; height:30px; border-radius:8px; background:rgba(0,0,0,0.55); border:none; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:2; }
+  .ss-fs-exit:hover{ background:rgba(0,0,0,0.75); }
   .ss-rotate-btn{ width:30px; height:30px; border-radius:8px; background:rgba(0,0,0,0.55); border:none; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .ss-rotate-btn:hover{ background:rgba(0,0,0,0.75); }
   .ss-tile.mine{ outline:2px solid rgba(255,255,255,0.25); }
 
-  /* ---------- sketch board ---------- */
-  .sketch-modal{ position:fixed; inset:0; background:#12161d; display:none; z-index:130; flex-direction:column; }
-  .sketch-modal.active{ display:flex; }
-  .sketch-toolbar{ display:flex; align-items:center; gap:12px; padding:10px 14px; background:#181c24; flex-wrap:wrap; padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
+  /* ---------- sketch board ----------
+     Truly full-screen: the canvas fills the entire modal edge-to-edge, and
+     the header/toolbar float on top as translucent overlays instead of
+     squeezing the drawing area into a smaller boxed-in region. */
+  .sketch-modal{ position:fixed; inset:0; background:#12161d; display:none; z-index:130; }
+  .sketch-modal.active{ display:block; }
+  .sketch-modal .ss-header{ position:absolute; top:0; left:0; right:0; z-index:5; background:linear-gradient(rgba(10,13,18,0.65), rgba(10,13,18,0)); padding-top:calc(12px + env(safe-area-inset-top)); border:none; }
+  .sketch-toolbar{ position:absolute; left:0; right:0; bottom:0; z-index:5; display:flex; align-items:center; gap:12px; padding:10px 14px; background:linear-gradient(rgba(10,13,18,0), rgba(10,13,18,0.78) 40%); flex-wrap:wrap; padding-bottom:calc(10px + env(safe-area-inset-bottom)); pointer-events:none; }
+  .sketch-toolbar > *{ pointer-events:auto; }
   .sketch-colors{ display:flex; gap:7px; align-items:center; }
   .sketch-swatch{ width:24px; height:24px; border-radius:50%; border:2px solid rgba(255,255,255,0.18); cursor:pointer; flex-shrink:0; padding:0; }
   .sketch-swatch.active{ border-color:#fff; transform:scale(1.18); }
@@ -389,8 +421,23 @@
   .sketch-tool-btn.active{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
   .sketch-size-row{ display:flex; align-items:center; gap:7px; color:#8b93a0; font-size:11.5px; font-family:'Space Grotesk',sans-serif; }
   #sketchSize{ width:80px; accent-color:var(--accent); }
-  .sketch-canvas-wrap{ flex:1; position:relative; background:#ffffff; overflow:hidden; touch-action:none; }
+  .sketch-bg-swatch{ width:22px; height:22px; border-radius:6px; border:2px solid rgba(255,255,255,0.18); cursor:pointer; flex-shrink:0; padding:0; }
+  .sketch-bg-swatch.active{ border-color:#fff; transform:scale(1.15); }
+  .sketch-bg-swatch.custom{ background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red); position:relative; }
+  #sketchBgCustom{ position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; padding:0; border:none; }
+  .sketch-toolbar-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; width:100%; }
+  .sketch-toolbar-row + .sketch-toolbar-row{ margin-top:8px; }
+  .sketch-canvas-wrap{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; touch-action:none; background:#0a0d12; }
+  /* A fixed 16:9 "page" letterboxed to fit any screen shape. Every device
+     computes strokes as 0..1 fractions of THIS box, not of its own raw
+     viewport — so a phone and a desktop see the exact same geometry
+     instead of the drawing stretching or squashing between them. */
+  .sketch-canvas-inner{ position:relative; box-shadow:0 0 0 1px rgba(255,255,255,0.08), 0 20px 60px -20px rgba(0,0,0,0.6); }
   #sketchCanvas{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:crosshair; }
+  .sketch-rotate-hint{ position:absolute; top:calc(52px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:6; display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.65); color:#fff; font-size:12px; font-family:'Space Grotesk',sans-serif; padding:8px 12px; border-radius:20px; }
+  .sketch-rotate-hint button{ background:none; border:none; color:#fff; opacity:0.7; cursor:pointer; padding:0 2px; font-size:14px; }
+  .sketch-rotate-hint.hidden{ display:none; }
+  .sketch-shape-preview{ position:absolute; inset:0; pointer-events:none; }
 
   /* ---------- mobile: full-screen chat, WhatsApp-style ---------- */
   @media (max-width:700px){
@@ -680,23 +727,52 @@
     <div class="ss-title"><span id="sketchTitle">Sketch board</span></div>
     <button class="ss-close" id="sketchCloseBtn">✕</button>
   </div>
-  <div class="sketch-canvas-wrap">
-    <canvas id="sketchCanvas"></canvas>
+  <div class="sketch-rotate-hint hidden" id="sketchRotateHint">
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/></svg>
+    <span>Rotate your phone for a bigger board</span>
+    <button id="sketchRotateHintClose">✕</button>
+  </div>
+  <div class="sketch-canvas-wrap" id="sketchCanvasWrap">
+    <div class="sketch-canvas-inner" id="sketchCanvasInner">
+      <canvas id="sketchCanvas"></canvas>
+      <svg class="sketch-shape-preview" id="sketchShapePreview"></svg>
+    </div>
   </div>
   <div class="sketch-toolbar">
-    <div class="sketch-colors" id="sketchColors"></div>
-    <div class="sketch-sep"></div>
-    <button class="sketch-tool-btn" id="sketchEraserBtn" title="Eraser">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H8l-6-6a2 2 0 010-2.8L13.2 2 22 10.8 12.8 20"/><path d="M6.5 12.5L14 20"/></svg>
-    </button>
-    <div class="sketch-size-row">
-      <span>Size</span>
-      <input type="range" id="sketchSize" min="2" max="24" value="4">
+    <div class="sketch-toolbar-row">
+      <div class="sketch-colors" id="sketchColors"></div>
+      <div class="sketch-sep"></div>
+      <button class="sketch-tool-btn active" id="sketchPenBtn" title="Pen">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      </button>
+      <button class="sketch-tool-btn" id="sketchLineBtn" title="Line">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/></svg>
+      </button>
+      <button class="sketch-tool-btn" id="sketchRectBtn" title="Rectangle">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12" rx="1.5"/></svg>
+      </button>
+      <button class="sketch-tool-btn" id="sketchEllipseBtn" title="Ellipse">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="8" ry="6"/></svg>
+      </button>
+      <button class="sketch-tool-btn" id="sketchFillBtn" title="Fill shapes">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l7 7-7 13-7-13 7-7z"/></svg>
+      </button>
+      <button class="sketch-tool-btn" id="sketchEraserBtn" title="Eraser">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H8l-6-6a2 2 0 010-2.8L13.2 2 22 10.8 12.8 20"/><path d="M6.5 12.5L14 20"/></svg>
+      </button>
     </div>
-    <div class="sketch-sep"></div>
-    <button class="sketch-tool-btn" id="sketchClearBtn" title="Clear board">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-    </button>
+    <div class="sketch-toolbar-row">
+      <div class="sketch-size-row">
+        <span>Size</span>
+        <input type="range" id="sketchSize" min="2" max="24" value="4">
+      </div>
+      <div class="sketch-sep"></div>
+      <div class="sketch-colors" id="sketchBgColors" title="Board background"></div>
+      <div class="sketch-sep"></div>
+      <button class="sketch-tool-btn" id="sketchClearBtn" title="Clear board">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -1258,11 +1334,16 @@ function applyReorderedIds(orderIds){
   });
 }
 
-function fileChipHtml(name, dataUrl){
-  const sizeKb = Math.max(1, Math.round(dataUrl.length * 0.75 / 1024));
+function fileChipHtml(name, dataUrl, sizeLabel){
+  // Prefer the real byte size (sizeLabel, computed from the actual file
+  // before base64 padding/encoding) over guessing from the data URL length.
+  const label = sizeLabel || formatBytes(Math.round(dataUrl.length * 0.75));
   return `<a class="file-chip" href="${dataUrl}" download="${escapeHtml(name)}">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
-    <span>${escapeHtml(name)} · ${sizeKb}KB</span>
+    <span class="file-chip-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>
+    <span class="file-chip-meta">
+      <span class="file-chip-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+      <span class="file-chip-size">${label}</span>
+    </span>
   </a>`;
 }
 
@@ -1284,8 +1365,13 @@ function addMessage({who, text, mine, system, ts, image, file, id}){
   } else if(file){
     el.className = 'msg ' + (mine ? 'me':'them');
     el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) +
-      fileChipHtml(file.name, file.dataUrl) +
+      fileChipHtml(file.name, file.dataUrl, file.sizeLabel) +
       (time?`<div class="time">${time}</div>`:'');
+  } else if(isSingleEmojiText(text)){
+    el.className = 'msg emoji-only ' + (mine ? 'me':'them');
+    el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) +
+      `<div class="emoji-big">${escapeHtml(text)}</div>` + (time?`<div class="time">${time}</div>`:'');
+    animateBigEmoji(el.querySelector('.emoji-big'), text);
   } else {
     el.className = 'msg ' + (mine ? 'me':'them');
     el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) + `<div>${escapeHtml(text)}</div>` + (time?`<div class="time">${time}</div>`:'');
@@ -1294,6 +1380,50 @@ function addMessage({who, text, mine, system, ts, image, file, id}){
   box.appendChild(el);
   box.scrollTop = box.scrollHeight;
   return el;
+}
+
+/* ---------------- single-emoji messages (WhatsApp-style) ----------------
+   A message that's nothing but one emoji (optionally a ZWJ sequence, skin
+   tone modifier, flag, or keycap like 1️⃣) renders bubble-less and big,
+   and — if Google's animated emoji set has that character — plays a short
+   looping animation before settling back to the plain glyph. */
+function isSingleEmojiText(text){
+  if(!text) return false;
+  const t = text.trim();
+  if(!t || t.length > 16) return false;
+  const re = /^(?:\p{RI}\p{RI}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?)*)$/u;
+  try{ return re.test(t); }catch(e){ return false; }
+}
+function emojiToNotoCodepoints(emoji){
+  return [...emoji]
+    .map(c => c.codePointAt(0))
+    .filter(cp => cp !== 0xFE0F) // Noto filenames drop the variation selector
+    .map(cp => cp.toString(16))
+    .join('_');
+}
+function animateBigEmoji(container, emoji){
+  if(!container || typeof lottie === 'undefined') return;
+  const codepoints = emojiToNotoCodepoints(emoji.trim());
+  if(!codepoints) return;
+  const url = `https://fonts.gstatic.com/s/e/notoemoji/latest/${codepoints}/lottie.json`;
+  const holder = document.createElement('div');
+  holder.className = 'emoji-anim';
+  let anim;
+  try{
+    anim = lottie.loadAnimation({
+      container: holder, renderer: 'svg', loop: true, autoplay: true, path: url
+    });
+  } catch(e){ return; }
+  anim.addEventListener('data_failed', ()=>{ holder.remove(); });
+  anim.addEventListener('DOMLoaded', ()=>{
+    container.style.display = 'none';
+    container.after(holder);
+    setTimeout(()=>{
+      try{ anim.stop(); anim.destroy(); }catch(e){}
+      holder.remove();
+      container.style.display = '';
+    }, 3000); // loop for a few seconds, then settle back to the plain glyph
+  });
 }
 function isNearBottom(box){ return box.scrollHeight - box.scrollTop - box.clientHeight < 200; }
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
@@ -1391,7 +1521,7 @@ function finalizeIncomingFile(buf, dataUrl, msgId){
     const img = el.querySelector('.msg-img');
     img.addEventListener('click', (e)=>{ e.stopPropagation(); if(el.classList.contains('pressing')) return; openLightbox(dataUrl); });
   } else {
-    el.innerHTML = `<div class="who">${escapeHtml(buf.name)}</div>` + fileChipHtml(buf.fileName || 'File', dataUrl) + (time?`<div class="time">${time}</div>`:'');
+    el.innerHTML = `<div class="who">${escapeHtml(buf.name)}</div>` + fileChipHtml(buf.fileName || 'File', dataUrl, buf.sizeLabel) + (time?`<div class="time">${time}</div>`:'');
   }
   attachMessageActions(el, false, msgId, false, preview);
   if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
@@ -1408,7 +1538,7 @@ function finalizeSentFile(buf, dataUrl, msgId){
     const img = el.querySelector('.msg-img');
     img.addEventListener('click', (e)=>{ e.stopPropagation(); if(el.classList.contains('pressing')) return; openLightbox(dataUrl); });
   } else {
-    el.innerHTML = fileChipHtml(buf.fileName || 'File', dataUrl) + (time?`<div class="time">${time}</div>`:'');
+    el.innerHTML = fileChipHtml(buf.fileName || 'File', dataUrl, buf.sizeLabel) + (time?`<div class="time">${time}</div>`:'');
   }
   attachMessageActions(el, false, msgId, true, preview);
   if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
@@ -1710,6 +1840,14 @@ async function handleIncoming(raw, fromConnId){
   }
   else if(obj.type === 'sketch-clear'){
     sketchApplyClear(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-shape'){
+    sketchApplyShape(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-bg'){
+    sketchApplyBg(obj);
     if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
   }
   else if(obj.type === 'sketch-sync' && !state.isHost){
@@ -2108,7 +2246,7 @@ const MAX_DATA_URL_LEN = 500 * 1024 * 1024;
 
 function formatBytes(n){
   if(n < 1024) return n + ' B';
-  if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  if(n < 999*1024) return (n/1024).toFixed(1) + ' KB';
   if(n < 1024*1024*1024) return (n/(1024*1024)).toFixed(1) + ' MB';
   return (n/(1024*1024*1024)).toFixed(2) + ' GB';
 }
@@ -2309,20 +2447,61 @@ function removeTile(key){
   if(!entry) return;
   entry.wrap.remove();
   ssTiles.delete(key);
+  ssTiles.forEach(scaleTileForViewport);
   updateSsChrome();
 }
+function isPortraitViewport(){
+  return window.matchMedia('(orientation: portrait)').matches;
+}
+function ensureFsExitBtn(entry){
+  if(entry.exitBtn) return entry.exitBtn;
+  const btn = document.createElement('button');
+  btn.className = 'ss-fs-exit';
+  btn.title = 'Exit full screen';
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  btn.addEventListener('click', ()=>{
+    entry.rotation = 0;
+    applyTileRotation(entry);
+  });
+  entry.wrap.appendChild(btn);
+  entry.exitBtn = btn;
+  return btn;
+}
 function applyTileRotation(entry){
-  const v = entry.video;
-  v.style.transform = `rotate(${entry.rotation}deg)`;
-  if(entry.rotation === 90 || entry.rotation === 270){
-    const w = entry.wrap.clientWidth, h = entry.wrap.clientHeight;
-    v.style.maxWidth = h + 'px';
-    v.style.maxHeight = w + 'px';
+  const v = entry.video, wrap = entry.wrap;
+  // On a portrait phone, rotating a landscape share 90°/270° should blow
+  // it up to fill the whole screen (rotated), not just spin a small
+  // video in place — that's the "small when I rotate" complaint.
+  const goFullscreen = (entry.rotation === 90 || entry.rotation === 270) && isPortraitViewport();
+  wrap.classList.toggle('fs-rotated', goFullscreen);
+  wrap.classList.toggle('rot270', goFullscreen && entry.rotation === 270);
+  if(goFullscreen){
+    v.style.transform = 'none';
+    v.style.maxWidth = '100%'; v.style.maxHeight = '100%';
+    ensureFsExitBtn(entry).style.display = 'flex';
   } else {
-    v.style.maxWidth = '100%';
-    v.style.maxHeight = '100%';
+    if(entry.exitBtn) entry.exitBtn.style.display = 'none';
+    v.style.transform = `rotate(${entry.rotation}deg)`;
+    if(entry.rotation === 90 || entry.rotation === 270){
+      const w = wrap.clientWidth, h = wrap.clientHeight;
+      v.style.maxWidth = h + 'px';
+      v.style.maxHeight = w + 'px';
+    } else {
+      v.style.maxWidth = '100%';
+      v.style.maxHeight = '100%';
+    }
   }
 }
+function scaleTileForViewport(entry){
+  // Re-check on resize/orientation change: e.g. if the phone is physically
+  // rotated to landscape while a tile is in fs-rotated mode, drop back to
+  // the normal grid view since the content is now the right way up already.
+  if((entry.rotation === 90 || entry.rotation === 270) ){
+    applyTileRotation(entry);
+  }
+}
+window.addEventListener('resize', ()=> ssTiles.forEach(scaleTileForViewport));
+window.addEventListener('orientationchange', ()=> ssTiles.forEach(scaleTileForViewport));
 
 async function startScreenShare(){
   if(!canBroadcastScreen()){
@@ -2403,15 +2582,23 @@ function handleScreenShareSignal(obj, fromConnId){
    truth and pushes a one-time 'sketch-sync' to anyone who joins mid-session,
    so latecomers see everything drawn so far. */
 const SKETCH_COLORS = ['#1c2733','#e0575c','#2f8fdd','#3fae5c','#f0a63e','#8b6fd9','#e8618c','#ffffff'];
-let sketchStrokes = [];           // ordered list of {id,color,size,erase,name,pts,done}
+const SKETCH_BG_COLORS = ['#ffffff','#12161d','#f4ecd8','#eaf2ff','#132a1c'];
+const SKETCH_ASPECT = 16/9; // fixed "page" shape everyone draws onto, so
+                             // strokes line up the same on any device shape
+let sketchStrokes = [];           // ordered list of stroke/shape objects
 let sketchById = new Map();       // id -> stroke, for fast lookup while drawing
 let sketchColor = SKETCH_COLORS[0];
+let sketchBgColor = SKETCH_BG_COLORS[0];
 let sketchSize = 4;
 let sketchEraser = false;
-let localStroke = null;           // the stroke currently being drawn by me
+let sketchTool = 'pen';           // 'pen' | 'line' | 'rect' | 'ellipse'
+let sketchFill = false;
+let shapeStart = null;            // start point while dragging a shape tool
+let localStroke = null;           // the freehand stroke currently being drawn by me
 let sketchPendingPts = [];        // points drawn locally since the last network flush
 let sketchFlushRAF = null;
 let sketchResizeBound = false;
+let sketchRotateHintDismissed = false;
 
 function sketchModalOpen(){ return document.getElementById('sketchModal').classList.contains('active'); }
 function sketchCanvasEl(){ return document.getElementById('sketchCanvas'); }
@@ -2420,8 +2607,28 @@ function sketchCssSize(){
   const c = sketchCanvasEl();
   return [c.clientWidth || 1, c.clientHeight || 1];
 }
+function computeSketchBoxSize(){
+  const wrap = document.getElementById('sketchCanvasWrap');
+  const cw = wrap.clientWidth || 1, ch = wrap.clientHeight || 1;
+  let w, h;
+  if(cw / ch > SKETCH_ASPECT){ h = ch; w = h * SKETCH_ASPECT; }
+  else { w = cw; h = w / SKETCH_ASPECT; }
+  return [Math.max(1, Math.floor(w)), Math.max(1, Math.floor(h))];
+}
+function updateRotateHintVisibility(){
+  const hint = document.getElementById('sketchRotateHint');
+  if(!hint) return;
+  const shouldShow = !sketchRotateHintDismissed && sketchModalOpen() &&
+    window.matchMedia('(orientation: portrait)').matches &&
+    window.matchMedia('(pointer: coarse)').matches;
+  hint.classList.toggle('hidden', !shouldShow);
+}
 
 function resizeSketchCanvas(){
+  const inner = document.getElementById('sketchCanvasInner');
+  const [boxW, boxH] = computeSketchBoxSize();
+  inner.style.width = boxW + 'px';
+  inner.style.height = boxH + 'px';
   const canvas = sketchCanvasEl();
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -2430,6 +2637,7 @@ function resizeSketchCanvas(){
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   redrawSketch();
+  updateRotateHintVisibility();
 }
 
 function strokeStyle(ctx, stroke){
@@ -2440,7 +2648,28 @@ function strokeStyle(ctx, stroke){
   ctx.fillStyle = stroke.color;
   ctx.lineWidth = stroke.size;
 }
+function drawShape(stroke, ctx, w, h){
+  const x0 = stroke.p0[0]*w, y0 = stroke.p0[1]*h, x1 = stroke.p1[0]*w, y1 = stroke.p1[1]*h;
+  ctx.save();
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = stroke.color; ctx.fillStyle = stroke.color; ctx.lineWidth = stroke.size;
+  ctx.beginPath();
+  if(stroke.shape === 'line'){
+    ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+  } else if(stroke.shape === 'rect'){
+    const rx = Math.min(x0,x1), ry = Math.min(y0,y1), rw = Math.abs(x1-x0), rh = Math.abs(y1-y0);
+    ctx.rect(rx,ry,rw,rh);
+    stroke.fill ? ctx.fill() : ctx.stroke();
+  } else if(stroke.shape === 'ellipse'){
+    const cx=(x0+x1)/2, cy=(y0+y1)/2, rx=Math.abs(x1-x0)/2, ry=Math.abs(y1-y0)/2;
+    ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
+    stroke.fill ? ctx.fill() : ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawStrokeFull(stroke, ctx, w, h){
+  if(stroke.type === 'shape'){ drawShape(stroke, ctx, w, h); return; }
   if(!stroke.pts.length) return;
   ctx.save();
   strokeStyle(ctx, stroke);
@@ -2512,14 +2741,53 @@ function sketchApplyClear(obj){
 function sketchApplySync(obj){
   sketchStrokes = obj.strokes || [];
   sketchById = new Map(sketchStrokes.map(s=>[s.id, s]));
+  if(obj.bgColor){
+    sketchBgColor = obj.bgColor;
+    document.getElementById('sketchCanvasInner').style.background = sketchBgColor;
+    renderSketchBgColors();
+  }
   redrawSketch();
 }
 async function sendSketchSyncTo(connId){
   if(!state.isHost) return;
   const entry = state.conns.get(connId);
   if(!entry || !entry.conn.open || sketchStrokes.length === 0) return;
-  const payload = await encryptObj(state.key, {type:'sketch-sync', strokes: sketchStrokes});
+  const payload = await encryptObj(state.key, {type:'sketch-sync', strokes: sketchStrokes, bgColor: sketchBgColor});
   entry.conn.send(payload);
+}
+function sketchApplyShape(obj){
+  if(sketchById.has(obj.id)) return;
+  const stroke = { id:obj.id, type:'shape', shape:obj.shape, p0:obj.p0, p1:obj.p1, color:obj.color, size:obj.size, fill:!!obj.fill, name:obj.name };
+  sketchStrokes.push(stroke);
+  sketchById.set(obj.id, stroke);
+  if(sketchModalOpen()) drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
+}
+function sketchApplyBg(obj){
+  sketchBgColor = obj.color;
+  document.getElementById('sketchCanvasInner').style.background = sketchBgColor;
+  renderSketchBgColors();
+}
+function updateShapePreview(p0, p1){
+  const svg = document.getElementById('sketchShapePreview');
+  const [w,h] = sketchCssSize();
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const x0 = p0[0]*w, y0 = p0[1]*h, x1 = p1[0]*w, y1 = p1[1]*h;
+  const fillAttr = sketchFill ? sketchColor : 'none';
+  let shapeEl = '';
+  if(sketchTool === 'line'){
+    shapeEl = `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="${sketchColor}" stroke-width="${sketchSize}" stroke-linecap="round"/>`;
+  } else if(sketchTool === 'rect'){
+    const rx = Math.min(x0,x1), ry = Math.min(y0,y1), rw = Math.abs(x1-x0), rh = Math.abs(y1-y0);
+    shapeEl = `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" stroke="${sketchColor}" stroke-width="${sketchSize}" fill="${fillAttr}"/>`;
+  } else if(sketchTool === 'ellipse'){
+    const cx=(x0+x1)/2, cy=(y0+y1)/2, rx=Math.abs(x1-x0)/2, ry=Math.abs(y1-y0)/2;
+    shapeEl = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" stroke="${sketchColor}" stroke-width="${sketchSize}" fill="${fillAttr}"/>`;
+  }
+  svg.innerHTML = shapeEl;
+}
+function clearShapePreview(){
+  const svg = document.getElementById('sketchShapePreview');
+  if(svg) svg.innerHTML = '';
 }
 
 /* ---- my own drawing input ---- */
@@ -2544,9 +2812,14 @@ function sketchPointerDown(e){
   const canvas = sketchCanvasEl();
   try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
   const pt = getNormPoint(e);
+  if(sketchTool !== 'pen'){
+    shapeStart = pt;
+    updateShapePreview(pt, pt);
+    return;
+  }
   const {color, size} = currentStrokeColorAndSize();
   const id = state.myId + '-' + Date.now() + '-' + Math.floor(Math.random()*1e6);
-  localStroke = { id, color, size, erase: sketchEraser, name: state.myName, pts:[pt], done:false };
+  localStroke = { id, type:'freehand', color, size, erase: sketchEraser, name: state.myName, pts:[pt], done:false };
   sketchStrokes.push(localStroke);
   sketchById.set(id, localStroke);
   drawStrokeFull(localStroke, sketchCtx(), ...sketchCssSize());
@@ -2554,6 +2827,12 @@ function sketchPointerDown(e){
   sendSketchPayload({type:'sketch-start', id, color, size, erase: sketchEraser, name: state.myName, x: pt[0], y: pt[1]});
 }
 function sketchPointerMove(e){
+  if(sketchTool !== 'pen'){
+    if(!shapeStart) return;
+    e.preventDefault();
+    updateShapePreview(shapeStart, getNormPoint(e));
+    return;
+  }
   if(!localStroke) return;
   e.preventDefault();
   const pt = getNormPoint(e);
@@ -2572,6 +2851,19 @@ function sketchPointerMove(e){
   }
 }
 function sketchPointerUp(e){
+  if(sketchTool !== 'pen'){
+    if(!shapeStart) return;
+    const end = getNormPoint(e);
+    clearShapePreview();
+    const id = state.myId + '-' + Date.now() + '-' + Math.floor(Math.random()*1e6);
+    const stroke = { id, type:'shape', shape: sketchTool, p0: shapeStart, p1: end, color: sketchColor, size: sketchSize, fill: sketchFill, name: state.myName };
+    sketchStrokes.push(stroke);
+    sketchById.set(id, stroke);
+    drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
+    sendSketchPayload({type:'sketch-shape', id, shape: sketchTool, p0: shapeStart, p1: end, color: sketchColor, size: sketchSize, fill: sketchFill, name: state.myName});
+    shapeStart = null;
+    return;
+  }
   if(!localStroke) return;
   if(sketchPendingPts.length){
     sendSketchPayload({type:'sketch-point', id: localStroke.id, pts: sketchPendingPts});
@@ -2595,13 +2887,63 @@ function renderSketchColors(){
     wrap.appendChild(b);
   });
 }
+function renderSketchBgColors(){
+  const wrap = document.getElementById('sketchBgColors');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  SKETCH_BG_COLORS.forEach(c=>{
+    const b = document.createElement('button');
+    b.className = 'sketch-bg-swatch' + (c === sketchBgColor ? ' active' : '');
+    b.style.background = c;
+    b.title = 'Board background';
+    b.addEventListener('click', ()=> setSketchBg(c));
+    wrap.appendChild(b);
+  });
+  const custom = document.createElement('button');
+  custom.className = 'sketch-bg-swatch custom' + (SKETCH_BG_COLORS.indexOf(sketchBgColor) === -1 ? ' active' : '');
+  custom.title = 'Custom background color';
+  const input = document.createElement('input');
+  input.type = 'color'; input.id = 'sketchBgCustom';
+  input.value = /^#([0-9a-f]{6})$/i.test(sketchBgColor) ? sketchBgColor : '#ffffff';
+  input.addEventListener('input', (e)=> setSketchBg(e.target.value));
+  custom.appendChild(input);
+  wrap.appendChild(custom);
+}
+function setSketchBg(c){
+  sketchBgColor = c;
+  document.getElementById('sketchCanvasInner').style.background = c;
+  renderSketchBgColors();
+  sendSketchPayload({type:'sketch-bg', color: c});
+}
 function updateEraserBtn(){
   document.getElementById('sketchEraserBtn').classList.toggle('active', sketchEraser);
 }
+function setSketchTool(tool){
+  sketchTool = tool;
+  shapeStart = null;
+  clearShapePreview();
+  document.getElementById('sketchPenBtn').classList.toggle('active', tool === 'pen');
+  document.getElementById('sketchLineBtn').classList.toggle('active', tool === 'line');
+  document.getElementById('sketchRectBtn').classList.toggle('active', tool === 'rect');
+  document.getElementById('sketchEllipseBtn').classList.toggle('active', tool === 'ellipse');
+}
+document.getElementById('sketchPenBtn').addEventListener('click', ()=> setSketchTool('pen'));
+document.getElementById('sketchLineBtn').addEventListener('click', ()=> setSketchTool('line'));
+document.getElementById('sketchRectBtn').addEventListener('click', ()=> setSketchTool('rect'));
+document.getElementById('sketchEllipseBtn').addEventListener('click', ()=> setSketchTool('ellipse'));
+document.getElementById('sketchFillBtn').addEventListener('click', (e)=>{
+  sketchFill = !sketchFill;
+  e.currentTarget.classList.toggle('active', sketchFill);
+});
 document.getElementById('sketchEraserBtn').addEventListener('click', ()=>{
   sketchEraser = !sketchEraser;
+  setSketchTool('pen');
   renderSketchColors();
   updateEraserBtn();
+});
+document.getElementById('sketchRotateHintClose').addEventListener('click', ()=>{
+  sketchRotateHintDismissed = true;
+  updateRotateHintVisibility();
 });
 document.getElementById('sketchSize').addEventListener('input', (e)=>{ sketchSize = parseInt(e.target.value, 10) || 4; });
 document.getElementById('sketchClearBtn').addEventListener('click', ()=>{
@@ -2621,7 +2963,10 @@ document.getElementById('sketchClearBtn').addEventListener('click', ()=>{
 function openSketchModal(){
   document.getElementById('sketchModal').classList.add('active');
   renderSketchColors();
+  renderSketchBgColors();
+  document.getElementById('sketchCanvasInner').style.background = sketchBgColor;
   updateEraserBtn();
+  setSketchTool(sketchTool);
   document.getElementById('sketchSize').value = sketchSize;
   requestAnimationFrame(resizeSketchCanvas);
   if(!sketchResizeBound){
@@ -2634,6 +2979,8 @@ function openSketchModal(){
 }
 function closeSketchModal(){
   document.getElementById('sketchModal').classList.remove('active');
+  shapeStart = null;
+  clearShapePreview();
 }
 document.getElementById('sketchBtn').addEventListener('click', openSketchModal);
 document.getElementById('sketchCloseBtn').addEventListener('click', closeSketchModal);

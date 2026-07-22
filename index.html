@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js" defer></script>
 <style>
@@ -433,7 +433,8 @@
   .appearance-card-name{ position:relative; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:15.5px; }
   .appearance-card-sub{ position:relative; font-size:11.5px; color:var(--muted); }
   .appearance-apply-row{ display:flex; gap:10px; margin-top:18px; }
-  .appearance-apply-row .btn{ flex:1; margin-top:0; padding-left:10px; padding-right:10px; }
+  .appearance-apply-row .btn{ flex:1; margin-top:0; padding-left:8px; padding-right:8px; }
+  .appearance-apply-row #applyThemeEveryone{ font-size:13px; white-space:nowrap; }
   body:not(.chat-mode) #applyThemeEveryone{ display:none; }
   .sheet-action-btn{ width:100%; text-align:left; padding:13px 14px; border-radius:11px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:'Inter',sans-serif; font-size:14px; cursor:pointer; margin-bottom:9px; display:flex; align-items:center; gap:10px; }
   .sheet-action-btn:hover{ border-color:var(--accent); }
@@ -652,7 +653,7 @@
       <div class="field">
         <label>Security code</label>
         <div class="row">
-          <input type="text" class="mono" id="startCode" placeholder="Set a passcode" maxlength="20" name="securityPhrase" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+          <input type="text" class="mono" id="startCode" placeholder="Set a passcode" maxlength="20" name="securityPhrase" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
           <button class="inline-btn" id="genCode">Generate</button>
         </div>
         <p class="hint">Share this code with people separately from the room code (e.g. in person or a different app) — that's what keeps this end‑to‑end encrypted.</p>
@@ -678,11 +679,11 @@
       </div>
       <div class="field">
         <label>Room code</label>
-        <input type="text" class="mono" id="joinRoom" placeholder="XXXXXX" maxlength="6" name="roomIdentifier" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+        <input type="text" class="mono" id="joinRoom" placeholder="XXXXXX" maxlength="6" name="roomIdentifier" autocomplete="off" autocapitalize="characters" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
       </div>
       <div class="field">
         <label>Security code</label>
-        <input type="text" class="mono" id="joinCode" placeholder="Passcode" name="securityPhrase" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+        <input type="text" class="mono" id="joinCode" placeholder="Passcode" name="securityPhrase" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
       </div>
       <p class="error" id="joinError"></p>
       <button class="btn btn-primary" id="joinBtn">Join room</button>
@@ -791,7 +792,7 @@
   <select class="font-select" id="fontSelect"></select>
   <div class="appearance-apply-row">
     <button class="btn btn-ghost" id="applyThemeMe">Apply for me</button>
-    <button class="btn btn-primary" id="applyThemeEveryone" title="Apply for everyone">Apply</button>
+    <button class="btn btn-primary" id="applyThemeEveryone" title="Apply for everyone">Apply for Everyone</button>
   </div>
 </div>
 

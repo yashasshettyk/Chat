@@ -389,6 +389,7 @@
   .ss-header .ss-title{ font-family:'Space Grotesk',sans-serif; font-size:14px; display:flex; align-items:center; gap:8px; }
   .ss-live-dot{ width:8px; height:8px; border-radius:50%; background:#e0575c; animation:pulse 1.4s ease-in-out infinite; }
   .ss-close{ background:rgba(255,255,255,0.1); border:none; color:#fff; width:34px; height:34px; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .ss-close.mic-on{ background:var(--online); color:#0a0d12; }
   .ss-video-wrap{ flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:10px; }
   .ss-empty{ color:#8b93a0; font-family:'Inter',sans-serif; font-size:13.5px; text-align:center; max-width:280px; line-height:1.6; margin:auto; }
   .ss-grid{ flex:1; display:none; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:12px; padding:14px; overflow-y:auto; align-content:start; }
@@ -1696,22 +1697,6 @@ function finalizeIncomingFile(buf, dataUrl, msgId){
   if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
   renderIcons(el);
 }
-  const el = buf.el;
-  const time = buf.ts ? new Date(buf.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
-  el.classList.remove('progress-msg');
-  let preview = buf.isImage ? 'Photo' : (buf.fileName || 'File');
-  if(buf.isImage){
-    el.classList.add('has-image');
-    el.innerHTML = `<img class="msg-img" src="${dataUrl}" alt="Shared photo">` + (time?`<div class="time">${time}</div>`:'');
-    const img = el.querySelector('.msg-img');
-    img.addEventListener('click', (e)=>{ e.stopPropagation(); if(el.classList.contains('pressing')) return; openLightbox(dataUrl); });
-  } else {
-    el.innerHTML = fileChipHtml(buf.fileName || 'File', dataUrl, buf.sizeLabel) + (time?`<div class="time">${time}</div>`:'');
-  }
-  attachMessageActions(el, false, msgId, true, preview);
-  if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
-  renderIcons(el);
-}
 
 function openLightbox(src){
   document.getElementById('lightboxImg').src = src;
@@ -1884,6 +1869,7 @@ async function resolveJoinRequest(connId, allowed){
     state.members.set(connId, entry.pendingName);
     addMessage({system:true, text: entry.pendingName + ' joined the room'});
     await broadcastRoster();
+    syncMicToRoster();
     if(document.getElementById('chatWrap').classList.contains('active') === false) enterChatUI();
   } else if(!allowed && entry){
     setTimeout(()=>{ try{ entry.conn.close(); }catch(e){} }, 150);
@@ -1918,6 +1904,7 @@ async function handleIncoming(raw, fromConnId){
     state.members.set(fromConnId, obj.name);
     addMessage({system:true, text: obj.name + (reconnecting ? ' reconnected' : ' joined the room')});
     await broadcastRoster();
+    syncMicToRoster();
   }
   else if(obj.type === 'join-accepted' && !state.isHost){
     onJoinAccepted();
@@ -1984,6 +1971,7 @@ async function handleIncoming(raw, fromConnId){
     state.members = new Map(obj.members.map(m=>[m.id,m.name]));
     if(obj.roomName && obj.roomName !== state.roomName){ state.roomName = obj.roomName; }
     updatePeerCount();
+    syncMicToRoster();
   }
   else if(obj.type === 'system' && !state.isHost){
     addMessage({system:true, text: obj.text});
@@ -2726,6 +2714,10 @@ async function stopScreenShare(){
   sendPayloadToPeers(announce);
 }
 function handleIncomingCall(call){
+  if(call.metadata && call.metadata.kind === 'mic'){
+    handleIncomingMicCall(call);
+    return;
+  }
   call.answer(); // view-only: we never send our own stream back automatically
   const peerId = call.peer;
   const name = resolvePeerName(peerId);
@@ -2748,6 +2740,109 @@ function handleScreenShareSignal(obj, fromConnId){
     addMessage({system:true, text: (obj.name===state.myName ? 'You' : obj.name) + ' stopped sharing their screen'});
   }
 }
+
+/* ---------------- mic / voice chat ----------------
+   Independent from screen sharing, and works while a screen share is live.
+   It's a mesh of one-directional PeerJS media calls, same pattern as screen
+   share: turning your mic on calls every other real peer with your mic
+   stream; turning it off closes those calls. If the other person also has
+   their mic on, that's a second, separate call running the other way — so
+   two people each turning their mic on get two independent one-way audio
+   connections, i.e. genuine simultaneous two-way audio, not a single
+   connection that has to be "given the floor". This also means audio never
+   depends on who is or isn't sharing their screen. */
+let micStream = null;
+let micOn = false;
+let micOutgoingCalls = new Map();   // real peer id -> MediaConnection, only while my mic is on
+let micIncoming = new Map();        // real peer id -> {audioEl}
+
+function canUseMic(){
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+function setMicButtonsState(on){
+  [document.getElementById('micBtn'), document.getElementById('ssMicBtn')].forEach(btn=>{
+    if(!btn) return;
+    btn.classList.toggle('mic-on', on);
+    btn.title = on ? 'Turn off mic' : 'Turn on mic (voice chat)';
+    const icon = btn.querySelector('i');
+    if(icon) icon.setAttribute('data-lucide', on ? 'mic' : 'mic-off');
+  });
+  renderIcons();
+}
+async function toggleMic(){
+  if(micOn){ stopMic(); return; }
+  if(!canUseMic()){
+    addMessage({system:true, text:"This browser doesn't support microphone access."});
+    return;
+  }
+  let stream;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+  } catch(e){
+    if(e && e.name === 'NotAllowedError'){
+      addMessage({system:true, text:'Microphone access was blocked. Allow mic access in your browser settings to use voice chat.'});
+    } else {
+      addMessage({system:true, text:"Couldn't access the microphone" + (e && e.name ? ': ' + e.name : '') + '.'});
+    }
+    return;
+  }
+  micStream = stream;
+  micOn = true;
+  setMicButtonsState(true);
+  callAllPeersWithMic();
+}
+function stopMic(){
+  micOn = false;
+  setMicButtonsState(false);
+  if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
+  micOutgoingCalls.forEach(call=>{ try{ call.close(); }catch(e){} });
+  micOutgoingCalls.clear();
+}
+function callAllPeersWithMic(){
+  if(!micOn || !micStream || !state.peer) return;
+  getAllOtherRealPeerIds().forEach(peerId=>{
+    if(micOutgoingCalls.has(peerId)) return;
+    let call;
+    try{ call = state.peer.call(peerId, micStream, {metadata:{kind:'mic'}}); }catch(e){}
+    if(call){
+      micOutgoingCalls.set(peerId, call);
+      call.on('close', ()=> micOutgoingCalls.delete(peerId));
+      call.on('error', ()=> micOutgoingCalls.delete(peerId));
+    }
+  });
+}
+// Called whenever the roster changes, so an already-on mic also reaches
+// anyone who joins mid-call, not just whoever was present when it was turned on.
+function syncMicToRoster(){
+  if(micOn) callAllPeersWithMic();
+}
+function handleIncomingMicCall(call){
+  call.answer(); // receive-only on this connection — if I want to talk back, that's my own separate outgoing call to them
+  const peerId = call.peer;
+  call.on('stream', (remoteStream)=>{
+    let entry = micIncoming.get(peerId);
+    if(!entry){
+      const audioEl = document.createElement('audio');
+      audioEl.autoplay = true;
+      audioEl.setAttribute('playsinline','');
+      audioEl.style.display = 'none';
+      document.body.appendChild(audioEl);
+      entry = {audioEl};
+      micIncoming.set(peerId, entry);
+    }
+    entry.audioEl.srcObject = remoteStream;
+    entry.audioEl.play().catch(()=>{});
+  });
+  call.on('close', ()=> removeMicIncoming(peerId));
+}
+function removeMicIncoming(peerId){
+  const entry = micIncoming.get(peerId);
+  if(!entry) return;
+  try{ entry.audioEl.srcObject = null; entry.audioEl.remove(); }catch(e){}
+  micIncoming.delete(peerId);
+}
+document.getElementById('micBtn').addEventListener('click', toggleMic);
+document.getElementById('ssMicBtn').addEventListener('click', toggleMic);
 
 /* ==================== live sketch board ====================
    Everyone's strokes are kept in a shared, ever-growing list of stroke

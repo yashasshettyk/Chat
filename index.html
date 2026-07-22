@@ -290,26 +290,44 @@
 
   /* ---------------- floating voice-chat speaker avatars ---------------- */
   .voice-avatars-bar{
-    display:none; align-items:center; gap:14px; padding:10px 16px; overflow-x:auto;
-    background:var(--surface-2); border-left:1px solid var(--border); border-right:1px solid var(--border);
+    display:none; align-items:center; gap:10px;
+    position:absolute; top:12px; left:50%; z-index:20;
+    max-width:calc(100% - 28px); overflow-x:auto;
+    padding:8px 14px; border-radius:999px;
+    background:color-mix(in srgb, var(--surface) 58%, transparent);
+    -webkit-backdrop-filter:blur(18px) saturate(180%);
+    backdrop-filter:blur(18px) saturate(180%);
+    border:1px solid color-mix(in srgb, var(--border) 65%, transparent);
+    box-shadow:0 10px 30px -10px rgba(20,30,50,0.28), 0 1px 0 rgba(255,255,255,0.35) inset;
+    opacity:0; pointer-events:none;
+    transform:translateX(-50%) translateY(-10px) scale(0.96);
+    transition:opacity .28s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1);
     scrollbar-width:none;
   }
   .voice-avatars-bar::-webkit-scrollbar{ display:none; }
-  .voice-avatars-bar.active{ display:flex; }
-  .voice-avatar{ display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0; }
+  .voice-avatars-bar.active{
+    display:flex; opacity:1; pointer-events:auto;
+    transform:translateX(-50%) translateY(0) scale(1);
+    animation:voiceBarFloat 4s ease-in-out infinite;
+  }
+  @keyframes voiceBarFloat{
+    0%,100%{ transform:translateX(-50%) translateY(0) scale(1); }
+    50%{ transform:translateX(-50%) translateY(-3px) scale(1); }
+  }
+  .voice-avatar{ display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; }
   .voice-avatar-circle{
-    position:relative; width:42px; height:42px; border-radius:50%;
-    background:var(--accent-soft); color:var(--accent); font-weight:700; font-size:15px;
+    position:relative; width:32px; height:32px; border-radius:50%;
+    background:var(--accent-soft); color:var(--accent); font-weight:700; font-size:12px;
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
     transition:box-shadow .15s ease, transform .15s ease;
-    box-shadow:0 0 0 2px var(--border);
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--border) 80%, transparent);
   }
-  .voice-avatar-circle .material-symbols-outlined{ font-size:18px; }
-  .voice-avatar-name{ font-size:10.5px; color:var(--muted); max-width:56px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .voice-avatar-circle .material-symbols-outlined{ font-size:14px; }
+  .voice-avatar-name{ font-size:9.5px; color:var(--muted); max-width:44px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .voice-avatar.muted .voice-avatar-circle{ opacity:.55; }
   .voice-avatar-circle.speaking{
     box-shadow:0 0 0 2px var(--online), 0 0 0 5px color-mix(in srgb, var(--online) 30%, transparent);
-    transform:scale(1.08);
+    transform:scale(1.1);
     animation:voiceSpeakPulse 1s ease-in-out infinite;
   }
   @keyframes voiceSpeakPulse{
@@ -351,9 +369,6 @@
   .msg.emoji-only .emoji-anim{ width:72px; height:72px; }
   .msg.emoji-only .time{ opacity:0.65; }
   .msg.pressing{ transform:scale(0.97); transition:transform .15s ease; }
-  .msg.armed{ transform:scale(0.97); box-shadow:0 10px 26px -6px rgba(20,30,50,0.22); transition:transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease; cursor:grab; }
-  .msg.dragging{ cursor:grabbing; z-index:60; box-shadow:0 18px 40px -10px rgba(20,30,50,0.4), 0 2px 0 rgba(255,255,255,0.5) inset; transition:none !important; touch-action:none; }
-  .msg-placeholder{ border-radius:16px; background:var(--accent-soft); opacity:0.5; flex-shrink:0; }
 
   /* ---------- typing indicator ---------- */
   .typing-row{ align-self:flex-start; display:flex; align-items:center; gap:5px; background:var(--bubble-them-bg); border:1px solid var(--bubble-them-border); border-radius:16px; border-bottom-left-radius:5px; padding:11px 15px; animation:typingIn .28s cubic-bezier(.2,.8,.2,1); }
@@ -751,8 +766,8 @@
     </div>
   </div>
   <div class="conn-banner" id="connBanner"></div>
-  <div class="voice-avatars-bar" id="voiceAvatarsBar"></div>
   <div class="chat-body" id="chatBody">
+    <div class="voice-avatars-bar" id="voiceAvatarsBar"></div>
     <div class="messages" id="messages"></div>
   </div>
   <div class="reply-preview-bar" id="replyPreviewBar">
@@ -1485,7 +1500,6 @@ function attachMessageActions(el, isSystem, msgId, mine, preview){
 
   el.addEventListener('contextmenu', (e)=>{ e.preventDefault(); openMsgActionSheet(msgId); });
 
-  if(mine && msgId) makeMessageDraggable(el, msgId, cancelPress, ()=>{ longPressFired = true; });
   if(msgId) makeMessageSwipeable(el, msgId, mine, cancelPress, ()=>{ longPressFired = true; });
 }
 
@@ -1574,158 +1588,6 @@ function replyQuoteHtml(replyTo){
   if(!replyTo) return '';
   const name = replyTo.name === state.myName ? 'You' : replyTo.name;
   return `<div class="msg-quote" data-quote-id="${replyTo.id}"><div class="msg-quote-name">${escapeHtml(name)}</div><div class="msg-quote-snippet">${escapeHtml(replyTo.preview || '')}</div></div>`;
-}
-
-/* ---------------- drag-to-reorder (rebuilt for stability) ----------------
-   Uses a fixed-position "ghost" that follows the pointer 1:1, plus a
-   placeholder element left in the flow to mark the drop position. This
-   avoids the previous approach's feedback loop (re-measuring the dragged
-   element's own rect immediately after moving it), which was the source
-   of the flicker/overshoot. */
-function makeMessageDraggable(el, msgId, cancelPress, markHandled){
-  const box = document.getElementById('messages');
-  let armTimer = null;
-  let armed = false;
-  let dragging = false;
-  let startY = 0, startX = 0;
-  let pointerId = null;
-  let ghost = null;
-  let placeholder = null;
-  let rect0 = null;
-
-  function getPoint(e){ return e.touches ? e.touches[0] : e; }
-
-  function onDown(e){
-    if(e.target.closest('.file-chip')) return;
-    if(e.type === 'mousedown' && e.button !== 0) return;
-    const p = getPoint(e);
-    startY = p.clientY; startX = p.clientX;
-    armed = false; dragging = false;
-    clearTimeout(armTimer);
-    armTimer = setTimeout(()=>{
-      armed = true;
-      el.classList.add('armed');
-      if(navigator.vibrate) navigator.vibrate(10);
-    }, 350);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchmove', onMove, {passive:false});
-    window.addEventListener('touchend', onUp);
-    window.addEventListener('touchcancel', onUp);
-  }
-
-  function beginDrag(){
-    dragging = true;
-    markHandled();
-    cancelPress();
-    el.classList.remove('pressing');
-
-    rect0 = el.getBoundingClientRect();
-    placeholder = document.createElement('div');
-    placeholder.className = 'msg-placeholder';
-    placeholder.style.width = rect0.width + 'px';
-    placeholder.style.height = rect0.height + 'px';
-    placeholder.style.alignSelf = 'flex-end'; // "me" bubbles are right-aligned
-    el.parentNode.insertBefore(placeholder, el);
-
-    ghost = el.cloneNode(true);
-    ghost.classList.add('dragging');
-    ghost.classList.remove('armed','pressing');
-    ghost.style.position = 'fixed';
-    ghost.style.left = rect0.left + 'px';
-    ghost.style.top = rect0.top + 'px';
-    ghost.style.width = rect0.width + 'px';
-    ghost.style.margin = '0';
-    ghost.style.pointerEvents = 'none';
-    document.body.appendChild(ghost);
-
-    el.style.display = 'none';
-  }
-
-  function onMove(e){
-    const p = getPoint(e);
-    const dx = p.clientX - startX, dy = p.clientY - startY;
-    if(!armed){
-      if(Math.abs(dy) > 10 || Math.abs(dx) > 10){ clearTimeout(armTimer); teardown(); }
-      return;
-    }
-    if(!dragging && Math.abs(dy) > 4) beginDrag();
-    if(!dragging) return;
-    if(e.cancelable) e.preventDefault();
-
-    const newTop = rect0.top + dy;
-    ghost.style.top = newTop + 'px';
-
-    // find where the placeholder should sit: compare ghost's vertical
-    // center to each sibling bubble's center, using each sibling's own
-    // (unaffected) rect — never re-measuring the moving element itself.
-    const ghostCenter = newTop + rect0.height / 2;
-    const siblings = [...box.querySelectorAll('.msg[data-msg-id]')].filter(s => s !== placeholder);
-    let target = null;
-    for(const sib of siblings){
-      const r = sib.getBoundingClientRect();
-      const sibCenter = r.top + r.height / 2;
-      if(ghostCenter < sibCenter){ target = sib; break; }
-    }
-    if(target && target !== placeholder.nextSibling){
-      box.insertBefore(placeholder, target);
-    } else if(!target && placeholder !== box.lastElementChild){
-      box.appendChild(placeholder);
-    }
-  }
-
-  function onUp(){
-    clearTimeout(armTimer);
-    if(dragging){
-      if(navigator.vibrate) navigator.vibrate(8);
-      // snap ghost to the placeholder's final resting spot, then swap in the real element
-      const finalRect = placeholder.getBoundingClientRect();
-      ghost.style.transition = 'top .15s cubic-bezier(.2,.8,.2,1), left .15s cubic-bezier(.2,.8,.2,1)';
-      ghost.style.top = finalRect.top + 'px';
-      ghost.style.left = finalRect.left + 'px';
-      setTimeout(()=>{
-        placeholder.replaceWith(el);
-        el.style.display = '';
-        el.classList.remove('armed');
-        ghost.remove();
-        ghost = null; placeholder = null;
-        broadcastCurrentOrder();
-      }, 160);
-    } else if(armed){
-      el.classList.remove('armed');
-    }
-    teardown();
-  }
-
-  function teardown(){
-    armed = false; dragging = false;
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup', onUp);
-    window.removeEventListener('touchmove', onMove);
-    window.removeEventListener('touchend', onUp);
-    window.removeEventListener('touchcancel', onUp);
-  }
-
-  el.addEventListener('mousedown', onDown);
-  el.addEventListener('touchstart', onDown, {passive:true});
-}
-
-/* ---------------- reordering: sync the new message order to everyone ---------------- */
-function broadcastCurrentOrder(){
-  const box = document.getElementById('messages');
-  const ids = [...box.querySelectorAll('.msg[data-msg-id]')].map(el=>el.dataset.msgId);
-  encryptObj(state.key, {type:'reorder', order: ids}).then(payload=>{
-    sendPayloadToPeers(payload);
-  });
-}
-function applyReorderedIds(orderIds){
-  const box = document.getElementById('messages');
-  orderIds.forEach(id=>{
-    const entry = messageElements.get(id);
-    if(entry && entry.el && entry.el.parentNode === box){
-      box.appendChild(entry.el);
-    }
-  });
 }
 
 function fileChipHtml(name, dataUrl, sizeLabel){
@@ -1892,6 +1754,7 @@ function addProgressMessage(buf){
   renderIcons(el);
   return el;
 }
+let progressScrollQueued = false;
 function updateProgressMessage(buf){
   if(!buf.el) return;
   const pct = Math.round((buf.received / buf.total) * 100);
@@ -1899,8 +1762,18 @@ function updateProgressMessage(buf){
   const fillEl = buf.el.querySelector('.progress-bar-fill');
   if(pctEl) pctEl.textContent = pct + '%';
   if(fillEl) fillEl.style.width = pct + '%';
-  const box = document.getElementById('messages');
-  if(isNearBottom(box)) box.scrollTop = box.scrollHeight;
+  // Progress updates can fire many times a second while a file is coming
+  // in. Forcing scrollTop on every single one fights any scroll the user
+  // is doing by hand (it feels like the chat "sticks"/glitches). Collapse
+  // repeated requests into at most one scroll write per animation frame,
+  // and only when the user is actually parked near the bottom already.
+  if(progressScrollQueued) return;
+  progressScrollQueued = true;
+  requestAnimationFrame(()=>{
+    progressScrollQueued = false;
+    const box = document.getElementById('messages');
+    if(isNearBottom(box)) box.scrollTop = box.scrollHeight;
+  });
 }
 function setProgressPaused(buf, paused){
   if(!buf || !buf.el) return;
@@ -2276,10 +2149,6 @@ async function handleIncoming(raw, fromConnId){
   }
   else if(obj.type === 'typing'){
     if(obj.typing){ showTypingIndicator(obj.name); } else { hideTypingIndicator(obj.name); }
-    if(state.isHost){ await relayToOthers(fromConnId, raw); }
-  }
-  else if(obj.type === 'reorder'){
-    applyReorderedIds(obj.order);
     if(state.isHost){ await relayToOthers(fromConnId, raw); }
   }
   else if(obj.type === 'roster' && !state.isHost){

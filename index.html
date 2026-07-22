@@ -188,11 +188,6 @@
   .inline-btn{ background:var(--surface-2); border:1px solid var(--border); color:var(--muted); border-radius:9px; padding:0 14px; height:38px; font-size:12.5px; cursor:pointer; white-space:nowrap; font-family:'Space Grotesk',sans-serif; font-weight:500; flex-shrink:0; }
   .inline-btn:hover{ color:var(--text); border-color:var(--accent); }
   .inline-btn.full-btn{ width:100%; text-align:left; height:auto; padding:11px 13px; margin-bottom:8px; display:block; }
-  .inline-btn.toggle-btn{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-  .inline-btn.toggle-btn .menu-toggle-left{ display:flex; align-items:center; gap:9px; }
-  .inline-btn.toggle-btn .menu-toggle-state{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); }
-  .inline-btn.toggle-btn.captions-on .menu-toggle-state{ color:var(--online); }
-  .inline-btn.toggle-btn.captions-on{ color:var(--online); border-color:var(--online); }
 
   .btn{ width:100%; padding:14px 0; border-radius:12px; border:none; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14.5px; cursor:pointer; transition:transform .12s ease, opacity .12s ease; }
   .btn svg, .inline-btn svg{ vertical-align:-3px; margin-right:6px; }
@@ -235,7 +230,6 @@
   .icon-btn:hover{ color:var(--accent); border-color:var(--accent); }
   .icon-btn.leave-btn:hover{ color:var(--danger); border-color:var(--danger); }
   .icon-btn.mic-on{ color:var(--online); border-color:var(--online); }
-  .icon-btn.captions-on{ color:var(--online); border-color:var(--online); }
 
   /* ---------- floating live captions (glassmorphism) ----------
      Lives inside .chat-body (which sits right below .chat-header), so
@@ -746,10 +740,6 @@
   <div id="membersList" class="members-list"></div>
 
   <div class="swatch-label">Options</div>
-  <button class="inline-btn full-btn toggle-btn" id="captionsBtn" title="Turn on captions (speech-to-text)">
-    <span class="menu-toggle-left"><span class="material-symbols-outlined" style="font-size:16px;">closed_caption_off</span>Live captions</span>
-    <span class="menu-toggle-state">Off</span>
-  </button>
   <button class="inline-btn full-btn" id="openAppearanceFromMenu">🎨 Appearance</button>
   <button class="inline-btn full-btn" id="clearChatBtn">🧹 Clear chat for me</button>
 
@@ -826,7 +816,6 @@
     <div class="ss-title"><span class="ss-live-dot" id="ssLiveDot" style="display:none;"></span><span id="ssTitle">Screen share</span></div>
     <div style="display:flex; align-items:center; gap:8px;">
       <button class="ss-close" id="ssMicBtn" title="Turn on mic (voice chat)"><span class="material-symbols-outlined" style="font-size:16px;">mic_off</span></button>
-      <button class="ss-close" id="ssCaptionsBtn" title="Turn on captions (speech-to-text)"><span class="material-symbols-outlined" style="font-size:16px;">closed_caption_off</span></button>
       <button class="ss-close" id="ssCloseBtn"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
     </div>
   </div>
@@ -1302,6 +1291,23 @@ function parseInviteHash(){
 }
 parseInviteHash();
 
+// The <script> tag for jsQR lives in <head> and should normally be ready
+// long before anyone taps "Scan QR code", but on a slow first load or a
+// flaky CDN hit it's possible to reach here before it's finished (or after
+// it failed outright). Try one dynamic reload before giving up, since
+// silently never being able to decode anything is a much worse experience
+// than a one-time extra network request.
+function ensureJsQRLoaded(){
+  if(window.jsQR) return Promise.resolve(true);
+  return new Promise((resolve)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js';
+    s.onload = ()=> resolve(!!window.jsQR);
+    s.onerror = ()=> resolve(false);
+    document.head.appendChild(s);
+    setTimeout(()=> resolve(!!window.jsQR), 4000);
+  });
+}
 /* ---------------- in-app QR camera scanner ----------------
    Used from the Join tab: scan someone's invite QR straight into the
    room/security code fields. */
@@ -1439,6 +1445,16 @@ async function openQrScanner(onResult){
     status.textContent = "This browser doesn't support camera access.";
     return;
   }
+  // If the jsQR library failed to load (blocked CDN, offline, ad-blocker,
+  // slow network on first load, etc.) the camera preview still opens fine
+  // but every single frame silently comes back with "no code found" forever
+  // — which looks exactly like "I scanned it and nothing happened". Catch
+  // that up front instead of running a scanner that can never succeed.
+  if(!(await ensureJsQRLoaded())){
+    status.classList.add('error');
+    status.textContent = "The QR scanner didn't load properly. Check your connection and reload the page, then try again.";
+    return;
+  }
   qrCameraDevices = [];
   qrCameraIndex = 0;
   qrNoResultFrames = 0;
@@ -1462,24 +1478,41 @@ async function openQrScanner(onResult){
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const tick = ()=>{
     if(!qrScannerStream) return;
-    if(video.readyState === video.HAVE_ENOUGH_DATA){
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      // attemptBoth checks both normal and color-inverted QR codes (dark
-      // background invites), which the default option can otherwise miss.
-      const code = window.jsQR ? jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' }) : null;
-      if(code && code.data){
-        stopQrScanner();
-        onResult(code.data);
-        return;
+    // Everything below can throw for all sorts of device-specific reasons
+    // (a transient decode error, a 0x0 frame before metadata is ready,
+    // etc). Before this, any such error would silently kill the whole
+    // requestAnimationFrame loop — the preview would keep showing a live
+    // picture forever while scanning had actually stopped dead in the
+    // background, which is indistinguishable from "nothing happens".
+    // Catching it and always re-scheduling the next frame means a single
+    // bad frame can never permanently break scanning.
+    try{
+      if(video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth && video.videoHeight){
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        // attemptBoth checks both normal and color-inverted QR codes (dark
+        // background invites), which the default option can otherwise miss.
+        const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+        if(code && code.data){
+          stopQrScanner();
+          onResult(code.data);
+          return;
+        }
+        qrNoResultFrames++;
+        // If it's been scanning for a while with no luck, the most common
+        // real-world cause is the camera not focusing at close range — give
+        // it a nudge automatically rather than leaving it stuck forever.
+        if(qrNoResultFrames === 240) refocusQrSilently();
+        // After a longer stretch with no result at all, say so — silence
+        // otherwise looks identical whether it's still trying or long dead.
+        if(qrNoResultFrames === 600 && !status.classList.contains('error')){
+          status.textContent = 'Still looking — try moving closer, holding steady, or reducing glare on the code.';
+        }
       }
-      // If it's been scanning for a while with no luck, the most common
-      // real-world cause is the camera not focusing at close range — give
-      // it a nudge automatically rather than leaving it stuck forever.
-      qrNoResultFrames++;
-      if(qrNoResultFrames === 240) refocusQrSilently();
+    } catch(err){
+      // Swallow and keep scanning; a single bad frame shouldn't end the session.
     }
     qrScannerRAF = requestAnimationFrame(tick);
   };
@@ -3071,6 +3104,10 @@ async function toggleMic(){
   micOn = true;
   setMicButtonsState(true);
   callAllPeersWithMic();
+  // Captions are now just a visible-by-default side effect of talking —
+  // no separate toggle to hunt for. If this browser can't do speech
+  // recognition, startCaptions() just quietly no-ops.
+  startCaptions();
 }
 function stopMic(){
   micOn = false;
@@ -3078,6 +3115,7 @@ function stopMic(){
   if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
   micOutgoingCalls.forEach(call=>{ try{ call.close(); }catch(e){} });
   micOutgoingCalls.clear();
+  stopCaptions();
 }
 function callAllPeersWithMic(){
   if(!micOn || !micStream || !state.peer) return;
@@ -3155,18 +3193,6 @@ let captionFastFailStreak = 0;  // consecutive restarts that happened almost ins
 function canUseCaptions(){
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 }
-function setCaptionButtonsState(on){
-  [document.getElementById('captionsBtn'), document.getElementById('ssCaptionsBtn')].forEach(btn=>{
-    if(!btn) return;
-    btn.classList.toggle('captions-on', on);
-    btn.title = on ? 'Turn off captions' : 'Turn on captions (speech-to-text)';
-    const icon = btn.querySelector('.material-symbols-outlined');
-    if(icon) icon.textContent = on ? 'closed_caption' : 'closed_caption_off';
-    const label = btn.querySelector('.menu-toggle-state');
-    if(label) label.textContent = on ? 'On' : 'Off';
-  });
-  renderIcons();
-}
 function startCaptionRecognition(){
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const rec = new Recognition();
@@ -3226,28 +3252,19 @@ function startCaptionRecognition(){
   catch(e){ /* a start-while-stopping race — the pending restart timer above will retry */ return; }
   captionRecognition = rec;
 }
-function toggleCaptions(){
-  if(captionsOn){ stopCaptions(); return; }
-  if(!canUseCaptions()){
-    addMessage({system:true, text:"This browser doesn't support live captions (speech-to-text)."});
-    return;
-  }
+function startCaptions(){
+  if(captionsOn) return;
+  if(!canUseCaptions()) return; // silently skip on unsupported browsers — captions are a bonus of the mic, not a separate ask
   captionsOn = true;
   captionRecognitionId++;
   captionFastFailStreak = 0;
-  setCaptionButtonsState(true);
   startCaptionRecognition();
-  // Captions only work if people can actually be heard too, so switching
-  // captions on brings voice chat along with it (this only turns the mic
-  // ON — turning captions off later leaves your mic choice alone).
-  if(!micOn) toggleMic();
 }
 function stopCaptions(){
   captionsOn = false;
   captionRecognitionId++; // invalidates any in-flight restart timer or stale callback
   captionFastFailStreak = 0;
   clearTimeout(captionRestartTimer);
-  setCaptionButtonsState(false);
   if(captionRecognition){
     try{ captionRecognition.onend = null; captionRecognition.stop(); }catch(e){}
     captionRecognition = null;
@@ -3325,8 +3342,6 @@ function clearCaption(name){
   const entry = activeId ? captionQueue.find(e=> e.id === activeId) : null;
   if(entry) removeCaptionEntry(entry);
 }
-document.getElementById('captionsBtn').addEventListener('click', toggleCaptions);
-document.getElementById('ssCaptionsBtn').addEventListener('click', toggleCaptions);
 
 /* ==================== live sketch board ====================
    Everyone's strokes are kept in a shared, ever-growing list of stroke

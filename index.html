@@ -246,7 +246,6 @@
   .icon-btn:hover{ color:var(--accent); border-color:var(--accent); }
   .icon-btn.leave-btn:hover{ color:var(--danger); border-color:var(--danger); }
   .icon-btn.mic-on{ color:var(--online); border-color:var(--online); }
-  .icon-btn.captions-active{ color:var(--accent); border-color:var(--accent); }
 
   /* ---------- swipe-to-reply ---------- */
   .msg{ touch-action:pan-y; }
@@ -284,37 +283,6 @@
   .msg-quote-snippet{ font-size:12px; opacity:0.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
   .msg.flash-highlight{ animation:flashHighlight 1s ease; }
   @keyframes flashHighlight{ 0%,100%{ background:transparent; } 30%{ background:var(--accent-soft); } }
-
-  /* ---------- floating live captions (glassmorphism) ----------
-     Lives inside .chat-body (which sits right below .chat-header), so
-     anchoring to its top places the captions just under the header rather
-     than hovering over the composer. */
-  .caption-bar{ position:absolute; left:12px; right:12px; top:12px; z-index:5; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; }
-  .caption-bar:empty{ display:none; }
-  .caption-row{
-    position:relative; max-width:88%; padding:10px 16px 10px 14px; border-radius:18px;
-    font-size:13.5px; line-height:1.45; display:flex; gap:7px; color:#f4f6f9;
-    background:linear-gradient(135deg, rgba(50,56,70,0.55), rgba(50,56,70,0.32));
-    -webkit-backdrop-filter:blur(18px) saturate(180%); backdrop-filter:blur(18px) saturate(180%);
-    border:1px solid rgba(255,255,255,0.16);
-    box-shadow:0 12px 32px -8px rgba(10,14,20,0.4), inset 0 1px 0 rgba(255,255,255,0.14);
-    overflow:hidden;
-    animation:captionIn .42s cubic-bezier(.2,.8,.2,1) both, captionFloat 3.6s ease-in-out .42s infinite;
-    transition:opacity .26s ease, transform .26s ease;
-  }
-  .caption-row::before{
-    content:''; position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none;
-    background:linear-gradient(120deg, var(--accent), rgba(255,255,255,0.05) 45%, var(--accent) 100%);
-    opacity:0.55; -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite:xor; mask-composite:exclude;
-  }
-  .caption-row.caption-out{ animation:none; opacity:0; transform:translateY(10px) scale(0.94); }
-  .caption-row .caption-name{ font-weight:700; font-family:'Space Grotesk',sans-serif; flex-shrink:0; background:linear-gradient(120deg, var(--accent), #fff 130%); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .caption-row .caption-text{ color:#f4f6f9; word-wrap:break-word; }
-  .caption-eq{ display:inline-flex; align-items:flex-end; gap:2px; height:14px; flex-shrink:0; }
-  .caption-eq span{ width:3px; height:3px; border-radius:2px; background:var(--accent); transition:height .09s ease-out; }
-  @keyframes captionIn{ from{ opacity:0; transform:translateY(16px) scale(0.92); } to{ opacity:1; transform:none; } }
-  @keyframes captionFloat{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-5px); } }
 
   .conn-banner{ display:none; align-items:center; justify-content:center; gap:8px; background:var(--surface-2); color:var(--muted); font-size:12.5px; padding:8px; border-left:1px solid var(--border); border-right:1px solid var(--border); }
   .conn-banner.active{ display:flex; }
@@ -505,12 +473,8 @@
   @keyframes qrFocusPulse{ 0%{ opacity:1; transform:translate(-50%,-50%) scale(1.3); } 100%{ opacity:0; transform:translate(-50%,-50%) scale(1); } }
   .ss-close.active{ background:var(--accent); color:var(--on-accent); }
   .ss-close.mic-on{ background:var(--online); color:#0a0d12; }
-  .ss-close.captions-on{ background:var(--online); color:#0a0d12; }
   .ss-video-wrap{ flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:10px; position:relative; }
   .ss-empty{ color:#8b93a0; font-family:'Inter',sans-serif; font-size:13.5px; text-align:center; max-width:280px; line-height:1.6; margin:auto; }
-  .ss-caption-bar{ position:absolute; left:12px; right:12px; bottom:12px; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; z-index:6; }
-  .ss-caption-bar:empty{ display:none; }
-  .ss-caption-bar .caption-row{ max-width:min(90%,560px); }
   .ss-grid{ flex:1; display:none; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:12px; padding:14px; overflow-y:auto; align-content:start; }
   .ss-grid.active{ display:grid; }
   .ss-tile{ position:relative; background:#000; border-radius:12px; overflow:hidden; display:flex; align-items:center; justify-content:center; aspect-ratio:16/9; }
@@ -742,7 +706,6 @@
   <div class="conn-banner" id="connBanner"></div>
   <div class="chat-body" id="chatBody">
     <div class="messages" id="messages"></div>
-    <div class="caption-bar" id="captionBar"></div>
   </div>
   <div class="reply-preview-bar" id="replyPreviewBar">
     <span class="material-symbols-outlined reply-preview-icon" style="font-size:16px;">reply</span>
@@ -904,14 +867,12 @@
     <div class="ss-title"><span class="ss-live-dot" id="ssLiveDot" style="display:none;"></span><span id="ssTitle">Screen share</span></div>
     <div style="display:flex; align-items:center; gap:8px;">
       <button class="ss-close" id="ssMicBtn" title="Turn on mic (voice chat)"><span class="material-symbols-outlined" style="font-size:16px;">mic_off</span></button>
-      <button class="ss-close captions-on" id="ssCaptionsBtn" title="Hide captions"><span class="material-symbols-outlined" style="font-size:16px;">closed_caption</span></button>
       <button class="ss-close" id="ssCloseBtn"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
     </div>
   </div>
   <div class="ss-video-wrap">
     <div class="ss-grid" id="ssGrid"></div>
     <div class="ss-empty" id="ssEmpty">No one is sharing their screen yet. Anyone in the room can tap the screen-share icon in the header to start — everyone else sees it live, and several people can share at once.<br><br><span style="opacity:0.7;">This is view-only — for privacy and security, a browser can never let one device remote-control another's mouse, keyboard, or settings. Screen sharing just lets you see and talk someone through it.</span></div>
-    <div class="ss-caption-bar" id="ssCaptionBar"></div>
   </div>
   <div class="ss-fs-controls" id="ssFsControls">
     <button id="ssFsRotateBtn" title="Rotate view"><span class="material-symbols-outlined" style="font-size:16px;">rotate_right</span></button>
@@ -2335,10 +2296,6 @@ async function handleIncoming(raw, fromConnId){
     addMessage({system:true, text: (obj.by || 'Someone') + ' applied a new look for everyone'});
     if(state.isHost){ await relayToOthers(fromConnId, raw); }
   }
-  else if(obj.type === 'caption'){
-    renderCaption(obj.name, obj.text, obj.final);
-    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
-  }
 }
 
 function onJoinAccepted(){
@@ -3031,18 +2988,6 @@ document.getElementById('screenShareBtn').addEventListener('click', async ()=>{
   if(!ssIsSharing) await startScreenShare();
 });
 document.getElementById('ssCloseBtn').addEventListener('click', closeScreenShareModal);
-let ssCaptionsVisible = true;
-function setSsCaptionsBtnState(visible){
-  const btn = document.getElementById('ssCaptionsBtn');
-  btn.classList.toggle('captions-on', visible);
-  btn.title = visible ? 'Hide captions' : 'Show captions';
-  document.getElementById('ssCaptionBar').style.display = visible ? '' : 'none';
-}
-document.getElementById('ssCaptionsBtn').addEventListener('click', ()=>{
-  ssCaptionsVisible = !ssCaptionsVisible;
-  setSsCaptionsBtnState(ssCaptionsVisible);
-});
-setSsCaptionsBtnState(ssCaptionsVisible);
 
 function updateSsChrome(){
   const anySharing = ssTiles.size > 0;
@@ -3233,62 +3178,11 @@ function handleScreenShareSignal(obj, fromConnId){
    depends on who is or isn't sharing their screen. */
 let micStream = null;
 let micOn = false;
-let captionAutoStartTimer = null;
-let myLevelMeterStop = null;
 let micOutgoingCalls = new Map();   // real peer id -> MediaConnection, only while my mic is on
 let micIncoming = new Map();        // real peer id -> {audioEl}
 
 function canUseMic(){
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-}
-/* ---------------- live voice-level equalizer (ChatGPT-style bars next to the
-   floating caption text) ---------------- */
-let sharedAudioCtx = null;
-function getSharedAudioCtx(){
-  sharedAudioCtx = sharedAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
-  return sharedAudioCtx;
-}
-function startLevelMeter(stream, onLevel){
-  let stopped = false;
-  let ctx, analyser, source, data, raf;
-  try{
-    ctx = getSharedAudioCtx();
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.6;
-    source = ctx.createMediaStreamSource(stream);
-    source.connect(analyser);
-    data = new Uint8Array(analyser.frequencyBinCount);
-  } catch(e){ return ()=>{}; }
-  (function tick(){
-    if(stopped) return;
-    analyser.getByteFrequencyData(data);
-    let sum = 0;
-    for(let i=0;i<data.length;i++) sum += data[i];
-    const level = Math.min(1, (sum / data.length) / 90);
-    onLevel(level);
-    raf = requestAnimationFrame(tick);
-  })();
-  return function stop(){
-    stopped = true;
-    cancelAnimationFrame(raf);
-    onLevel(0);
-    try{ source.disconnect(); }catch(e){}
-  };
-}
-function setCaptionRowLevel(name, level){
-  const activeId = captionActiveBySpeaker.get(name);
-  const entry = activeId ? captionQueue.find(e=> e.id === activeId) : null;
-  if(!entry) return;
-  [entry.mainEl, entry.ssEl].forEach(el=>{
-    if(!el) return;
-    const bars = el.querySelectorAll('.caption-eq span');
-    bars.forEach((bar, i)=>{
-      const jitter = 0.55 + Math.random() * 0.9;
-      const h = 3 + Math.round(level * jitter * 13);
-      bar.style.height = Math.max(3, Math.min(16, h)) + 'px';
-    });
-  });
 }
 function setMicButtonsState(on){
   [document.getElementById('micBtn'), document.getElementById('ssMicBtn')].forEach(btn=>{
@@ -3321,37 +3215,13 @@ async function toggleMic(){
   micOn = true;
   setMicButtonsState(true);
   callAllPeersWithMic();
-  myLevelMeterStop = startLevelMeter(micStream, (lvl)=> setCaptionRowLevel(state.myName, lvl));
-  // Captions now piggyback on the mic button instead of needing their own
-  // gesture. Speech recognition still has to open its own independent mic
-  // grant (the browser gives no way to feed it the WebRTC stream instead),
-  // so we wait a moment after the call mic is already flowing before asking
-  // for the second grant — starting both at the exact same instant is what
-  // most often trips up Android's single-active-recording-session limit and
-  // makes the mic indicator blip. If a device still can't hold both open,
-  // startCaptionRecognition's own error/backoff handling below will notice
-  // and give up cleanly rather than looping forever.
-  if(canUseCaptions()){
-    clearTimeout(captionAutoStartTimer);
-    captionAutoStartTimer = setTimeout(()=>{
-      if(!micOn) return;
-      if(isMobileDevice() && !captionsMobileNoticeShown){
-        captionsMobileNoticeShown = true;
-        addMessage({system:true, text:'Live captions are on. On some phones this can make the mic indicator flicker briefly while it restarts listening — that\u2019s normal and your call audio stays connected.'});
-      }
-      startCaptions();
-    }, 500);
-  }
 }
 function stopMic(){
   micOn = false;
   setMicButtonsState(false);
-  clearTimeout(captionAutoStartTimer);
-  if(myLevelMeterStop){ myLevelMeterStop(); myLevelMeterStop = null; }
   if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
   micOutgoingCalls.forEach(call=>{ try{ call.close(); }catch(e){} });
   micOutgoingCalls.clear();
-  stopCaptions();
 }
 function callAllPeersWithMic(){
   if(!micOn || !micStream || !state.peer) return;
@@ -3383,228 +3253,22 @@ function handleIncomingMicCall(call){
       audioEl.setAttribute('playsinline','');
       audioEl.style.display = 'none';
       document.body.appendChild(audioEl);
-      entry = {audioEl, levelMeterStop:null};
+      entry = {audioEl};
       micIncoming.set(peerId, entry);
     }
     entry.audioEl.srcObject = remoteStream;
     entry.audioEl.play().catch(()=>{});
-    if(entry.levelMeterStop) entry.levelMeterStop();
-    entry.levelMeterStop = startLevelMeter(remoteStream, (lvl)=> setCaptionRowLevel(name, lvl));
   });
   call.on('close', ()=> removeMicIncoming(peerId));
 }
 function removeMicIncoming(peerId){
   const entry = micIncoming.get(peerId);
   if(!entry) return;
-  if(entry.levelMeterStop) entry.levelMeterStop();
   try{ entry.audioEl.srcObject = null; entry.audioEl.remove(); }catch(e){}
   micIncoming.delete(peerId);
 }
 document.getElementById('micBtn').addEventListener('click', toggleMic);
 document.getElementById('ssMicBtn').addEventListener('click', toggleMic);
-let captionsMobileNoticeShown = false;
-
-/* ---------------- live captions (speech-to-text) ----------------
-   Entirely local: runs the browser's own SpeechRecognition on your own
-   mic (independent of the voice-chat mic stream above — recognition needs
-   its own getUserMedia grant and can run whether or not voice chat is on).
-   Nothing audio ever leaves your device; only the resulting text is sent,
-   the same star-topology broadcast as typing indicators (send to host,
-   host relays to everyone else). Each speaker gets one caption line that
-   updates live as interim results come in and clears itself a few seconds
-   after their sentence finishes.
-
-   Mobile browsers silently end a recognition session after a few seconds
-   of quiet even with continuous:true, so we auto-restart on 'onend'. Some
-   Android builds play a short system tone on every SpeechRecognition
-   start — that's the platform's own voice-input cue, not something a web
-   page can suppress, but restarting immediately (or overlapping a start
-   with a not-yet-finished stop) makes it fire more often and can throw an
-   'already started' error. A small delay before each restart, plus an id
-   guard so a stale timer can never restart a session the user already
-   turned off, keeps restarts to the minimum the browser actually needs. */
-let captionsOn = false;
-let captionRecognition = null;
-let captionRecognitionId = 0;   // bumped on every stop, so stale restart timers no-op
-let captionRestartTimer = null;
-let captionStartedAt = 0;
-let captionFastFailStreak = 0;  // consecutive restarts that happened almost instantly — a real
-                                 // problem (mic busy/conflicting), not the normal silence timeout
-
-function canUseCaptions(){
-  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-}
-// Speech recognition needs its own independent getUserMedia grant, separate
-// from the WebRTC call mic — the Web Speech API gives no way to hand it an
-// existing MediaStream, so a second mic grant is unavoidable in a browser-
-// only, no-backend app. On mobile that recognition session silently ends
-// itself every few seconds of quiet and restarts, and each restart cycles
-// the device's mic indicator, which can look like "the mic keeps opening
-// and closing" even though the actual call audio never drops. Captions now
-// start automatically a moment after the mic button turns on (see
-// toggleMic) rather than needing their own gesture; people get a one-time
-// heads-up about the flicker on mobile the first time it kicks in.
-function isMobileDevice(){
-  return /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent || '')
-    || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
-}
-function startCaptionRecognition(){
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const rec = new Recognition();
-  const myId = captionRecognitionId;
-  rec.continuous = true;
-  rec.interimResults = true;
-  try{ rec.lang = navigator.language || 'en-US'; }catch(e){}
-  rec.onresult = (e)=>{
-    if(myId !== captionRecognitionId) return;
-    let text = '';
-    let isFinal = false;
-    for(let i = e.resultIndex; i < e.results.length; i++){
-      text += e.results[i][0].transcript;
-      if(e.results[i].isFinal) isFinal = true;
-    }
-    text = text.trim();
-    if(!text) return;
-    renderCaption(state.myName, text, isFinal);
-    sendCaptionPayload(text, isFinal);
-  };
-  rec.onerror = (e)=>{
-    if(myId !== captionRecognitionId) return;
-    if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
-      addMessage({system:true, text:'Microphone access was blocked. Allow mic access in your browser settings to use captions.'});
-      stopCaptions();
-    } else if(e.error === 'audio-capture'){
-      // mic is busy/unavailable at the OS level — retrying will just keep
-      // flicking it open and shut, so stop outright instead of looping.
-      addMessage({system:true, text:'Captions stopped — the microphone seems to be in use or unavailable.'});
-      stopCaptions();
-    }
-    // other errors (e.g. 'no-speech') are routine — onend below restarts it
-  };
-  rec.onend = ()=>{
-    if(myId !== captionRecognitionId || !captionsOn) return;
-    // Mobile browsers normally end a session after a few seconds of quiet,
-    // which is fine and expected. But if a session ends almost immediately
-    // after starting, over and over, that's not silence — it's something
-    // failing to actually open the mic each time (e.g. it's already in use),
-    // and retrying instantly just means the mic indicator keeps flickering
-    // open/closed. Detect that pattern and back off instead of looping.
-    const aliveMs = Date.now() - captionStartedAt;
-    captionFastFailStreak = aliveMs < 1000 ? captionFastFailStreak + 1 : 0;
-    if(captionFastFailStreak >= 4){
-      addMessage({system:true, text:"Captions stopped — the microphone keeps failing to start. Try turning voice chat off first, or check that no other app has the mic."});
-      stopCaptions();
-      return;
-    }
-    clearTimeout(captionRestartTimer);
-    const delay = captionFastFailStreak > 0 ? 800 * captionFastFailStreak : 300;
-    captionRestartTimer = setTimeout(()=>{
-      if(myId !== captionRecognitionId || !captionsOn) return;
-      startCaptionRecognition();
-    }, delay);
-  };
-  try{ rec.start(); captionStartedAt = Date.now(); }
-  catch(e){ /* a start-while-stopping race — the pending restart timer above will retry */ return; }
-  captionRecognition = rec;
-}
-function startCaptions(){
-  if(captionsOn) return;
-  if(!canUseCaptions()) return; // silently no-op on unsupported browsers
-  captionsOn = true;
-  captionRecognitionId++;
-  captionFastFailStreak = 0;
-  startCaptionRecognition();
-}
-function stopCaptions(){
-  captionsOn = false;
-  captionRecognitionId++; // invalidates any in-flight restart timer or stale callback
-  captionFastFailStreak = 0;
-  clearTimeout(captionRestartTimer);
-  if(captionRecognition){
-    try{ captionRecognition.onend = null; captionRecognition.stop(); }catch(e){}
-    captionRecognition = null;
-  }
-  clearCaption(state.myName);
-}
-async function sendCaptionPayload(text, final){
-  if(!state.key) return;
-  const payload = await encryptObj(state.key, {type:'caption', name: state.myName, text, final});
-  sendPayloadToPeers(payload);
-}
-/* Captions render as a short scrolling history (up to CAPTION_HISTORY_MAX
-   lines) rather than a single row per speaker that just gets overwritten —
-   so a back-and-forth conversation stays readable for a few lines instead
-   of only ever showing the latest speaker. While someone is mid-sentence
-   (not yet final) their line updates in place; once it's final it joins the
-   fixed history and the next thing they say starts a new line. */
-const CAPTION_HISTORY_MAX = 5;
-let captionQueue = [];               // ordered oldest -> newest: {id, mainEl, ssEl, timeout}
-let captionActiveBySpeaker = new Map(); // name -> id of their current in-progress (non-final) line
-let captionSeq = 0;
-function makeCaptionRow(){
-  const row = document.createElement('div');
-  row.className = 'caption-row';
-  row.innerHTML = `<span class="caption-eq"><span></span><span></span><span></span><span></span></span><span class="caption-name"></span><span class="caption-text"></span>`;
-  return row;
-}
-function removeCaptionEntry(entry, immediate){
-  if(!entry) return;
-  clearTimeout(entry.timeout);
-  const idx = captionQueue.indexOf(entry);
-  if(idx !== -1) captionQueue.splice(idx, 1);
-  captionActiveBySpeaker.forEach((id, name)=>{ if(id === entry.id) captionActiveBySpeaker.delete(name); });
-  [entry.mainEl, entry.ssEl].forEach(el=>{
-    if(!el) return;
-    el.style.animation = 'none';
-    el.classList.add('caption-out');
-  });
-  setTimeout(()=>{
-    entry.mainEl.remove();
-    entry.ssEl.remove();
-  }, immediate ? 0 : 260);
-}
-function renderCaption(name, text, final){
-  if(!name || !text) return;
-  const activeId = captionActiveBySpeaker.get(name);
-  let entry = activeId ? captionQueue.find(e=> e.id === activeId) : null;
-  if(!entry){
-    entry = { id: ++captionSeq, mainEl: makeCaptionRow(), ssEl: makeCaptionRow(), timeout: null };
-    captionQueue.push(entry);
-    captionActiveBySpeaker.set(name, entry.id);
-    const mainBar = document.getElementById('captionBar');
-    const ssBar = document.getElementById('ssCaptionBar');
-    if(mainBar) mainBar.appendChild(entry.mainEl);
-    if(ssBar) ssBar.appendChild(entry.ssEl);
-    // Keep only the most recent CAPTION_HISTORY_MAX lines on screen.
-    while(captionQueue.length > CAPTION_HISTORY_MAX){
-      removeCaptionEntry(captionQueue[0], true);
-    }
-  }
-  const label = (name === state.myName ? 'You' : name) + ':';
-  [entry.mainEl, entry.ssEl].forEach(el=>{
-    el.querySelector('.caption-name').textContent = label;
-    el.querySelector('.caption-text').textContent = text;
-  });
-  clearTimeout(entry.timeout);
-  if(final){
-    // Their next utterance becomes a fresh line rather than editing this one.
-    captionActiveBySpeaker.delete(name);
-    entry.timeout = setTimeout(()=> removeCaptionEntry(entry), 5000);
-  } else {
-    // Still interim (not final yet). Normally the next interim/final result
-    // keeps refreshing this timer — but mobile speech recognition can end a
-    // session mid-sentence (silence timeout) and never send a final result
-    // at all, which used to leave this line stuck on screen forever. Give
-    // every interim line its own stale-guard so it clears itself if nothing
-    // further ever arrives for it.
-    entry.timeout = setTimeout(()=> removeCaptionEntry(entry), 4000);
-  }
-}
-function clearCaption(name){
-  const activeId = captionActiveBySpeaker.get(name);
-  const entry = activeId ? captionQueue.find(e=> e.id === activeId) : null;
-  if(entry) removeCaptionEntry(entry);
-}
 
 /* ==================== live sketch board ====================
    Everyone's strokes are kept in a shared, ever-growing list of stroke

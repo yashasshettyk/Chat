@@ -231,6 +231,43 @@
   .icon-btn.leave-btn:hover{ color:var(--danger); border-color:var(--danger); }
   .icon-btn.mic-on{ color:var(--online); border-color:var(--online); }
 
+  /* ---------- swipe-to-reply ---------- */
+  .msg{ touch-action:pan-y; }
+  .msg[data-msg-id]{ position:relative; }
+  .msg[data-msg-id]::after{
+    content:'reply'; font-family:'Material Symbols Outlined'; font-feature-settings:'liga';
+    position:absolute; top:50%; transform:translateY(-50%); font-size:18px; color:var(--accent);
+    opacity:var(--swipe-o,0); pointer-events:none;
+  }
+  .msg.me[data-msg-id]::after{ right:calc(100% + 8px); }
+  .msg.them[data-msg-id]::after{ left:calc(100% + 8px); }
+  .msg.swipe-snap{ transition:transform .22s cubic-bezier(.2,.8,.2,1); }
+
+  /* ---------- reply preview bar (composer) ---------- */
+  .reply-preview-bar{ display:none; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--border); border-bottom:none; border-radius:0; padding:8px 12px; }
+  .reply-preview-bar.active{ display:flex; }
+  .reply-preview-icon{ color:var(--accent); flex-shrink:0; }
+  .reply-preview-text{ flex:1; min-width:0; border-left:3px solid var(--accent); padding-left:8px; }
+  .reply-preview-name{ font-size:12px; font-weight:700; color:var(--accent); }
+  .reply-preview-snippet{ font-size:12.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .reply-preview-cancel{ background:none; border:none; color:var(--muted); cursor:pointer; flex-shrink:0; width:26px; height:26px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+  .reply-preview-cancel:hover{ background:var(--border); }
+
+  /* ---------- @mention suggestions ---------- */
+  .mention-popup{ display:none; flex-direction:column; background:var(--surface); border:1px solid var(--border); border-radius:12px; margin:0 0 6px; max-height:160px; overflow-y:auto; box-shadow:0 -4px 18px rgba(0,0,0,0.12); }
+  .mention-popup.active{ display:flex; }
+  .mention-item{ display:flex; align-items:center; gap:9px; padding:9px 12px; cursor:pointer; font-size:13.5px; }
+  .mention-item:hover, .mention-item.hi{ background:var(--surface-2); }
+  .mention-item .mention-avatar{ width:24px; height:24px; border-radius:50%; background:var(--accent-soft); color:var(--accent); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+  .msg-mention{ color:var(--accent); font-weight:700; background:var(--accent-soft); border-radius:4px; padding:0 3px; }
+
+  /* ---------- quoted-reply block inside a message bubble ---------- */
+  .msg-quote{ display:block; border-left:3px solid var(--accent); background:rgba(127,127,127,0.12); border-radius:6px; padding:5px 8px; margin-bottom:5px; cursor:pointer; }
+  .msg-quote-name{ font-size:11.5px; font-weight:700; color:var(--accent); }
+  .msg-quote-snippet{ font-size:12px; opacity:0.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .msg.flash-highlight{ animation:flashHighlight 1s ease; }
+  @keyframes flashHighlight{ 0%,100%{ background:transparent; } 30%{ background:var(--accent-soft); } }
+
   /* ---------- floating live captions (glassmorphism) ----------
      Lives inside .chat-body (which sits right below .chat-header), so
      anchoring to its top places the captions just under the header rather
@@ -257,6 +294,8 @@
   .caption-row.caption-out{ animation:none; opacity:0; transform:translateY(10px) scale(0.94); }
   .caption-row .caption-name{ font-weight:700; font-family:'Space Grotesk',sans-serif; flex-shrink:0; background:linear-gradient(120deg, var(--accent), #fff 130%); -webkit-background-clip:text; background-clip:text; color:transparent; }
   .caption-row .caption-text{ color:#f4f6f9; word-wrap:break-word; }
+  .caption-eq{ display:inline-flex; align-items:flex-end; gap:2px; height:14px; flex-shrink:0; }
+  .caption-eq span{ width:3px; height:3px; border-radius:2px; background:var(--accent); transition:height .09s ease-out; }
   @keyframes captionIn{ from{ opacity:0; transform:translateY(16px) scale(0.92); } to{ opacity:1; transform:none; } }
   @keyframes captionFloat{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-5px); } }
 
@@ -358,6 +397,27 @@
   .pattern-label-row{ display:flex; gap:10px; margin-top:6px; }
   .pattern-label-row span{ flex:1; text-align:center; font-size:10px; color:var(--muted); }
   .sheet-done{ margin-top:20px; }
+  /* ---------- appearance preview card ---------- */
+  .appearance-card{ position:relative; display:flex; flex-direction:column; align-items:center; gap:10px; padding:22px 16px 18px; border-radius:18px; background:var(--surface-2); border:1px solid var(--border); overflow:hidden; text-align:center; }
+  .appearance-card::before{ content:''; position:absolute; inset:0; background:var(--bg-decor-1); opacity:.7; pointer-events:none; }
+  .appearance-card-avatar-wrap{ position:relative; width:74px; height:74px; }
+  .appearance-card-avatar-wrap::before{
+    content:''; position:absolute; inset:-6px; border-radius:50%;
+    background:conic-gradient(from 0deg, var(--accent), var(--accent-soft), var(--accent));
+    filter:blur(9px); opacity:.75; animation:avatarGlowSpin 4s linear infinite;
+  }
+  .appearance-card-avatar{
+    position:relative; width:74px; height:74px; border-radius:50%; background:var(--accent-soft); color:var(--accent);
+    display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:26px;
+    border:3px solid var(--surface); box-shadow:0 0 0 2px var(--accent), 0 0 22px 2px var(--accent); animation:avatarPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes avatarGlowSpin{ to{ transform:rotate(360deg); } }
+  @keyframes avatarPulse{ 0%,100%{ box-shadow:0 0 0 2px var(--accent), 0 0 14px 1px var(--accent); } 50%{ box-shadow:0 0 0 2px var(--accent), 0 0 26px 5px var(--accent); } }
+  .appearance-card-name{ position:relative; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:15.5px; }
+  .appearance-card-sub{ position:relative; font-size:11.5px; color:var(--muted); }
+  .appearance-apply-row{ display:flex; gap:10px; margin-top:18px; }
+  .appearance-apply-row .btn{ flex:1; margin-top:0; }
+  body:not(.chat-mode) #applyThemeEveryone{ display:none; }
   .sheet-action-btn{ width:100%; text-align:left; padding:13px 14px; border-radius:11px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:'Inter',sans-serif; font-size:14px; cursor:pointer; margin-bottom:9px; display:flex; align-items:center; gap:10px; }
   .sheet-action-btn:hover{ border-color:var(--accent); }
   .sheet-action-btn.danger{ color:var(--danger); }
@@ -396,6 +456,9 @@
   .members-list{ display:flex; flex-direction:column; gap:2px; margin-bottom:4px; }
   .member-row{ display:flex; align-items:center; gap:8px; font-size:13.5px; padding:6px 2px; }
   .member-dot{ width:7px; height:7px; border-radius:50%; background:var(--online); flex-shrink:0; }
+  .member-dot.away{ background:#e0a83f; animation:memberAwayPulse 1.3s ease-in-out infinite; }
+  @keyframes memberAwayPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+  .member-away-label{ font-size:11px; color:#e0a83f; font-weight:600; }
   .member-row .member-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .kick-btn{ background:transparent; border:1px solid var(--border); color:var(--danger); border-radius:8px; padding:4px 9px; font-size:11px; cursor:pointer; font-family:'Space Grotesk',sans-serif; flex-shrink:0; }
   .kick-btn:hover{ background:var(--danger); color:#fff; border-color:var(--danger); }
@@ -675,6 +738,17 @@
     <div class="messages" id="messages"></div>
     <div class="caption-bar" id="captionBar"></div>
   </div>
+  <div class="reply-preview-bar" id="replyPreviewBar">
+    <span class="material-symbols-outlined reply-preview-icon" style="font-size:16px;">reply</span>
+    <div class="reply-preview-text">
+      <div class="reply-preview-name" id="replyPreviewName"></div>
+      <div class="reply-preview-snippet" id="replyPreviewSnippet"></div>
+    </div>
+    <button class="reply-preview-cancel" id="replyPreviewCancel" type="button">
+      <span class="material-symbols-outlined" style="font-size:15px;">close</span>
+    </button>
+  </div>
+  <div class="mention-popup" id="mentionPopup"></div>
   <div class="composer">
     <button class="icon-btn attach-btn" id="attachBtn" title="Send a photo or file">
       <span class="material-symbols-outlined" style="font-size:17px;">attach_file</span>
@@ -695,7 +769,14 @@
 <div class="sheet" id="themeSheet">
   <div class="sheet-handle"></div>
   <h3>Appearance</h3>
-  <p class="sheet-sub">This is just for your screen — everyone in the room can choose their own colors.</p>
+  <p class="sheet-sub" id="themeSheetSub">This is just for your screen — everyone in the room can choose their own colors.</p>
+  <div class="appearance-card" id="appearanceCard">
+    <div class="appearance-card-avatar-wrap">
+      <div class="appearance-card-avatar" id="appearanceCardAvatar">?</div>
+    </div>
+    <div class="appearance-card-name" id="appearanceCardName">You</div>
+    <div class="appearance-card-sub">Live preview</div>
+  </div>
   <div class="swatch-label">Theme</div>
   <div class="swatch-row" id="themeSwatches"></div>
   <div class="swatch-label">Chat background</div>
@@ -703,7 +784,10 @@
   <div class="pattern-label-row" id="patternLabels"></div>
   <div class="swatch-label">Chat font</div>
   <select class="font-select" id="fontSelect"></select>
-  <button class="btn btn-ghost sheet-done" id="closeThemeSheet">Done</button>
+  <div class="appearance-apply-row">
+    <button class="btn btn-ghost" id="applyThemeMe">Apply for me</button>
+    <button class="btn btn-primary" id="applyThemeEveryone">Apply for everyone</button>
+  </div>
 </div>
 
 <div class="sheet" id="menuSheet">
@@ -816,6 +900,7 @@
     <div class="ss-title"><span class="ss-live-dot" id="ssLiveDot" style="display:none;"></span><span id="ssTitle">Screen share</span></div>
     <div style="display:flex; align-items:center; gap:8px;">
       <button class="ss-close" id="ssMicBtn" title="Turn on mic (voice chat)"><span class="material-symbols-outlined" style="font-size:16px;">mic_off</span></button>
+      <button class="ss-close captions-on" id="ssCaptionsBtn" title="Hide captions"><span class="material-symbols-outlined" style="font-size:16px;">closed_caption</span></button>
       <button class="ss-close" id="ssCloseBtn"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
     </div>
   </div>
@@ -1040,11 +1125,41 @@ function closeSheets(){
   document.getElementById('sheetBackdrop').classList.remove('active');
 }
 document.getElementById('sheetBackdrop').addEventListener('click', closeSheets);
-document.getElementById('closeThemeSheet').addEventListener('click', closeSheets);
 document.getElementById('closeMenuSheet').addEventListener('click', closeSheets);
 document.getElementById('closeQrSheet').addEventListener('click', closeSheets);
-document.getElementById('appearanceBtnLanding').addEventListener('click', ()=> openSheet('themeSheet'));
-document.getElementById('openAppearanceFromMenu').addEventListener('click', ()=> openSheet('themeSheet'));
+document.getElementById('appearanceBtnLanding').addEventListener('click', ()=>{ updateAppearanceCard(); openSheet('themeSheet'); });
+document.getElementById('openAppearanceFromMenu').addEventListener('click', ()=>{ updateAppearanceCard(); openSheet('themeSheet'); });
+
+/* ---------------- appearance preview card ---------------- */
+function updateAppearanceCard(){
+  const nameEl = document.getElementById('appearanceCardName');
+  const avatarEl = document.getElementById('appearanceCardAvatar');
+  const name = (typeof state !== 'undefined' && state.myName) ? state.myName : 'You';
+  nameEl.textContent = name;
+  avatarEl.textContent = name.trim().slice(0,1).toUpperCase() || '?';
+}
+
+/* ---------------- apply appearance: just me, or everyone in the room ----------------
+   "Apply for me" simply closes the sheet — every swatch/pattern/font tap already
+   applies + saves locally as you tap it. "Apply for everyone" asks for confirmation,
+   then broadcasts your current look to every other member; their apps switch to it
+   live (their own future choices still just apply to themselves again, same as before). */
+document.getElementById('applyThemeMe').addEventListener('click', closeSheets);
+document.getElementById('applyThemeEveryone').addEventListener('click', ()=>{
+  showModal({
+    title:'Apply for everyone?',
+    body:'This will change the theme, background and font on everyone\u2019s screen in this room right now.',
+    confirmText:'Apply for everyone',
+    cancelText:'Cancel',
+    onConfirm: async ()=>{
+      const look = { theme:getSavedTheme(), pattern:getSavedPattern(), font:getSavedFont(), by: state.myName };
+      const payload = await encryptObj(state.key, {type:'theme-sync', ...look});
+      sendPayloadToPeers(payload);
+      addMessage({system:true, text:'You applied a new look for everyone'});
+      closeSheets();
+    }
+  });
+});
 
 /* ---------------- themed modal helper (replaces confirm()/alert()) ---------------- */
 function showModal({title, body, confirmText='Confirm', cancelText='Cancel', danger=false, onConfirm, hideCancel=false}){
@@ -1202,6 +1317,7 @@ let reconnectAttempts = 0;
 let reconnectTimer = null;
 let incomingFiles = new Map();
 let pendingLeaves = new Map();
+let awayMembers = new Set(); // host: names currently disconnected but still inside the 8s grace window; joiners: synced from roster
 let messageElements = new Map();
 let activeMsgId = null;
 
@@ -1611,6 +1727,8 @@ function attachMessageActions(el, isSystem, msgId, mine, preview){
   el.addEventListener('mouseleave', cancelPress);
 
   el.addEventListener('click', (e)=>{
+    const quote = e.target.closest('.msg-quote');
+    if(quote){ e.stopPropagation(); scrollToMessage(quote.dataset.quoteId); return; }
     if(e.target.closest('.file-chip')) return;
     if(longPressFired){ longPressFired = false; return; }
     openMsgActionSheet(msgId);
@@ -1619,6 +1737,94 @@ function attachMessageActions(el, isSystem, msgId, mine, preview){
   el.addEventListener('contextmenu', (e)=>{ e.preventDefault(); openMsgActionSheet(msgId); });
 
   if(mine && msgId) makeMessageDraggable(el, msgId, cancelPress, ()=>{ longPressFired = true; });
+  if(msgId) makeMessageSwipeable(el, msgId, mine, cancelPress, ()=>{ longPressFired = true; });
+}
+
+/* ---------------- swipe-to-reply (WhatsApp-style: drag a bubble toward the
+   center of the screen to reply to it) ---------------- */
+const REPLY_SWIPE_TRIGGER = 46;
+const REPLY_SWIPE_MAX = 76;
+let replyContext = null; // {id, name, preview}
+function makeMessageSwipeable(el, msgId, mine, cancelPress, markHandled){
+  let startX = 0, startY = 0, active = false, decided = false, dx = 0;
+  const dir = mine ? -1 : 1; // "me" bubbles are right-aligned -> swipe left; "them" -> swipe right, both toward center
+
+  function getPoint(e){ return e.touches ? e.touches[0] : e; }
+
+  function onStart(e){
+    if(e.target.closest('.file-chip, .msg-quote')) return;
+    const p = getPoint(e);
+    startX = p.clientX; startY = p.clientY; dx = 0; active = false; decided = false;
+  }
+  function onMove(e){
+    const p = getPoint(e);
+    const ddx = p.clientX - startX, ddy = p.clientY - startY;
+    if(!decided){
+      if(Math.abs(ddx) > 8 || Math.abs(ddy) > 8){
+        decided = true;
+        active = Math.abs(ddx) > Math.abs(ddy);
+      }
+      if(!active) return;
+    }
+    if(!active) return;
+    if(cancelPress) cancelPress();
+    if(markHandled) markHandled();
+    // Only allow movement toward the center (the WhatsApp direction), clamp the rest.
+    let raw = ddx * dir; // positive when moving the "correct" way
+    if(raw < 0) raw = 0;
+    if(raw > REPLY_SWIPE_MAX) raw = REPLY_SWIPE_MAX;
+    dx = raw;
+    if(e.cancelable) e.preventDefault();
+    el.classList.remove('swipe-snap');
+    el.style.transform = `translateX(${dir === -1 ? -dx : dx}px)`;
+    el.style.setProperty('--swipe-o', Math.min(1, dx / REPLY_SWIPE_TRIGGER));
+  }
+  function onEnd(){
+    if(active && dx >= REPLY_SWIPE_TRIGGER){
+      if(navigator.vibrate) navigator.vibrate(10);
+      setReplyContext(msgId);
+    }
+    el.classList.add('swipe-snap');
+    el.style.transform = 'translateX(0)';
+    el.style.setProperty('--swipe-o', 0);
+    active = false; decided = false; dx = 0;
+  }
+
+  el.addEventListener('touchstart', onStart, {passive:true});
+  el.addEventListener('touchmove', onMove, {passive:false});
+  el.addEventListener('touchend', onEnd);
+  el.addEventListener('touchcancel', onEnd);
+}
+
+function setReplyContext(msgId){
+  const entry = messageElements.get(msgId);
+  if(!entry) return;
+  const whoEl = entry.el.querySelector('.who');
+  const name = whoEl ? whoEl.textContent : state.myName;
+  replyContext = { id: msgId, name, preview: entry.preview || '(message)' };
+  document.getElementById('replyPreviewName').textContent = name === state.myName ? 'You' : name;
+  document.getElementById('replyPreviewSnippet').textContent = replyContext.preview;
+  document.getElementById('replyPreviewBar').classList.add('active');
+  document.getElementById('msgInput').focus({preventScroll:true});
+}
+function clearReplyContext(){
+  replyContext = null;
+  document.getElementById('replyPreviewBar').classList.remove('active');
+}
+document.getElementById('replyPreviewCancel').addEventListener('click', clearReplyContext);
+
+function scrollToMessage(msgId){
+  const entry = messageElements.get(msgId);
+  if(!entry) return;
+  entry.el.scrollIntoView({behavior:'smooth', block:'center'});
+  entry.el.classList.remove('flash-highlight');
+  void entry.el.offsetWidth;
+  entry.el.classList.add('flash-highlight');
+}
+function replyQuoteHtml(replyTo){
+  if(!replyTo) return '';
+  const name = replyTo.name === state.myName ? 'You' : replyTo.name;
+  return `<div class="msg-quote" data-quote-id="${replyTo.id}"><div class="msg-quote-name">${escapeHtml(name)}</div><div class="msg-quote-snippet">${escapeHtml(replyTo.preview || '')}</div></div>`;
 }
 
 /* ---------------- drag-to-reorder (rebuilt for stability) ----------------
@@ -1786,16 +1992,17 @@ function fileChipHtml(name, dataUrl, sizeLabel){
   </a>`;
 }
 
-function addMessage({who, text, mine, system, ts, image, file, id}){
+function addMessage({who, text, mine, system, ts, image, file, id, replyTo, mentions}){
   const box = document.getElementById('messages');
   const el = document.createElement('div');
   const time = ts ? new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+  const quote = replyQuoteHtml(replyTo);
   let preview = text || (image ? 'Photo' : (file ? file.name : ''));
   if(system){
     el.className = 'sys'; el.textContent = text;
   } else if(image){
     el.className = 'msg has-image ' + (mine ? 'me':'them');
-    el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) +
+    el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) + quote +
       `<img class="msg-img" src="${image}" alt="Shared photo">` +
       (time?`<div class="time">${time}</div>`:'');
     const img = el.querySelector('.msg-img');
@@ -1803,21 +2010,22 @@ function addMessage({who, text, mine, system, ts, image, file, id}){
     img.addEventListener('load', ()=>{ if(isNearBottom(box)) scrollMessagesToBottom(); });
   } else if(file){
     el.className = 'msg ' + (mine ? 'me':'them');
-    el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) +
+    el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) + quote +
       fileChipHtml(file.name, file.dataUrl, file.sizeLabel) +
       (time?`<div class="time">${time}</div>`:'');
   } else if(isSingleEmojiText(text)){
     el.className = 'msg emoji-only ' + (mine ? 'me':'them');
-    el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) +
+    el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) + quote +
       `<div class="emoji-big">${escapeHtml(text)}</div>` + (time?`<div class="time">${time}</div>`:'');
     animateBigEmoji(el.querySelector('.emoji-big'), text);
   } else {
     el.className = 'msg ' + (mine ? 'me':'them');
-    el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) + `<div>${escapeHtml(text)}</div>` + (time?`<div class="time">${time}</div>`:'');
+    el.innerHTML = (mine?'':`<div class="who">${escapeHtml(who)}</div>`) + quote + `<div>${renderTextWithMentions(text, mentions)}</div>` + (time?`<div class="time">${time}</div>`:'');
   }
+  const wasNearBottom = mine || isNearBottom(box);
   attachMessageActions(el, system, id, mine, preview);
   box.appendChild(el);
-  box.scrollTop = box.scrollHeight;
+  if(wasNearBottom) box.scrollTop = box.scrollHeight;
   renderIcons(el);
   return el;
 }
@@ -1922,8 +2130,9 @@ function addProgressMessage(buf){
     <div class="progress-bar-track"><div class="progress-bar-fill"></div></div>
     ${buf.sizeLabel ? `<div class="progress-text" style="justify-content:center;opacity:0.75;"><span>${buf.sizeLabel}</span></div>` : ''}
   `;
+  const wasNearBottom = mine || isNearBottom(box);
   box.appendChild(el);
-  box.scrollTop = box.scrollHeight;
+  if(wasNearBottom) box.scrollTop = box.scrollHeight;
   renderIcons(el);
   return el;
 }
@@ -1967,6 +2176,24 @@ function finalizeIncomingFile(buf, dataUrl, msgId){
   renderIcons(el);
 }
 
+function finalizeSentFile(buf, dataUrl, msgId){
+  const el = buf.el;
+  const time = buf.ts ? new Date(buf.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+  el.classList.remove('progress-msg');
+  let preview = buf.isImage ? 'Photo' : (buf.fileName || 'File');
+  if(buf.isImage){
+    el.classList.add('has-image');
+    el.innerHTML = `<img class="msg-img" src="${dataUrl}" alt="Shared photo">` + (time?`<div class="time">${time}</div>`:'');
+    const img = el.querySelector('.msg-img');
+    img.addEventListener('click', (e)=>{ e.stopPropagation(); if(el.classList.contains('pressing')) return; openLightbox(dataUrl); });
+  } else {
+    el.innerHTML = fileChipHtml(buf.fileName || 'File', dataUrl, buf.sizeLabel) + (time?`<div class="time">${time}</div>`:'');
+  }
+  attachMessageActions(el, false, msgId, true, preview);
+  if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
+  renderIcons(el);
+}
+
 function openLightbox(src){
   document.getElementById('lightboxImg').src = src;
   document.getElementById('lightbox').classList.add('active');
@@ -1977,7 +2204,9 @@ document.getElementById('lightbox').addEventListener('click', (e)=>{ if(e.target
 /* ---------------- header + roster ---------------- */
 function updateHeaderTitle(){
   document.getElementById('roomTitle').textContent = state.roomName || ('Room · ' + state.roomCode);
-  document.getElementById('roomSub').textContent = 'Encrypted · ' + state.members.size + ' online';
+  const awayCount = [...state.members.values()].filter(n=> awayMembers.has(n)).length;
+  const sub = 'Encrypted · ' + state.members.size + ' online' + (awayCount ? ` · ${awayCount} reconnecting…` : '');
+  document.getElementById('roomSub').textContent = sub;
 }
 function updatePeerCount(){ updateHeaderTitle(); }
 
@@ -1987,7 +2216,8 @@ function renderMembersList(){
   state.members.forEach((name, id)=>{
     const row = document.createElement('div'); row.className = 'member-row';
     const isMe = (state.isHost && id === 'host') || (!state.isHost && id === state.myId);
-    row.innerHTML = `<span class="member-dot"></span><span class="member-name">${escapeHtml(name)}${isMe ? ' (you)' : ''}</span>`;
+    const isAway = awayMembers.has(name) && !isMe;
+    row.innerHTML = `<span class="member-dot${isAway ? ' away' : ''}"></span><span class="member-name">${escapeHtml(name)}${isMe ? ' (you)' : ''}${isAway ? ' <span class=\"member-away-label\">reconnecting…</span>' : ''}</span>`;
     if(state.isHost && id !== 'host'){
       const kickBtn = document.createElement('button');
       kickBtn.className = 'kick-btn'; kickBtn.textContent = 'Remove';
@@ -2093,9 +2323,10 @@ document.getElementById('saveRoomName').addEventListener('click', ()=>{
 async function broadcastRoster(){
   if(!state.isHost) return;
   const members = [...state.members.entries()].map(([id,name])=>({id,name}));
-  const payload = await encryptObj(state.key, {type:'roster', members, roomName: state.roomName || ''});
+  const payload = await encryptObj(state.key, {type:'roster', members, roomName: state.roomName || '', away:[...awayMembers]});
   state.conns.forEach(({conn})=>{ if(conn.open) conn.send(payload); });
   updatePeerCount();
+  renderMembersList();
 }
 
 async function relayToOthers(exceptId, payload){
@@ -2191,6 +2422,7 @@ async function handleIncoming(raw, fromConnId){
       return;
     }
     if(pendingLeaves.has(obj.name)){ clearTimeout(pendingLeaves.get(obj.name)); pendingLeaves.delete(obj.name); }
+    awayMembers.delete(obj.name);
     const payload = await encryptObj(state.key, {type:'join-accepted'});
     if(entry && entry.conn.open){ entry.conn.send(payload); await sendSketchSyncTo(fromConnId); }
     state.members.set(fromConnId, obj.name);
@@ -2210,7 +2442,8 @@ async function handleIncoming(raw, fromConnId){
   }
   else if(obj.type === 'chat'){
     hideTypingIndicator(obj.name);
-    addMessage({who: obj.name, text: obj.text, mine:false, ts: obj.ts, id: obj.id});
+    addMessage({who: obj.name, text: obj.text, mine:false, ts: obj.ts, id: obj.id, replyTo: obj.replyTo, mentions: obj.mentions});
+    if(obj.mentions && obj.mentions.includes(state.myName)) playMentionTone();
     if(state.isHost){ await relayToOthers(fromConnId, raw); }
   }
   else if(obj.type === 'file-chunk'){
@@ -2262,8 +2495,14 @@ async function handleIncoming(raw, fromConnId){
   }
   else if(obj.type === 'roster' && !state.isHost){
     state.members = new Map(obj.members.map(m=>[m.id,m.name]));
+    const newAway = new Set(obj.away || []);
+    newAway.forEach(n=>{ if(n !== state.myName && !awayMembers.has(n)) addMessage({system:true, text: n + '\u2019s connection dropped \u2014 reconnecting\u2026'}); });
+    const stillHere = new Set(state.members.values());
+    awayMembers.forEach(n=>{ if(n !== state.myName && !newAway.has(n) && stillHere.has(n)) addMessage({system:true, text: n + ' is back'}); });
+    awayMembers = newAway;
     if(obj.roomName && obj.roomName !== state.roomName){ state.roomName = obj.roomName; }
     updatePeerCount();
+    renderMembersList();
     syncMicToRoster();
   }
   else if(obj.type === 'system' && !state.isHost){
@@ -2306,6 +2545,15 @@ async function handleIncoming(raw, fromConnId){
   }
   else if(obj.type === 'sketch-sync' && !state.isHost){
     sketchApplySync(obj);
+  }
+  else if(obj.type === 'theme-sync'){
+    if(obj.theme) applyTheme(obj.theme);
+    if(obj.pattern) applyPattern(obj.pattern);
+    if(obj.font) applyFont(obj.font);
+    renderFontSelect();
+    if(document.getElementById('themeSheet').classList.contains('active')) updateAppearanceCard();
+    addMessage({system:true, text: (obj.by || 'Someone') + ' applied a new look for everyone'});
+    if(state.isHost){ await relayToOthers(fromConnId, raw); }
   }
   else if(obj.type === 'caption'){
     renderCaption(obj.name, obj.text, obj.final);
@@ -2384,15 +2632,122 @@ document.getElementById('msgInput').addEventListener('input', ()=>{
   if(val.trim().length === 0){
     sendTypingSignal(false);
     lastTypingSentAt = 0;
-    return;
+  } else {
+    const now = Date.now();
+    if(now - lastTypingSentAt > 1500){
+      lastTypingSentAt = now;
+      sendTypingSignal(true);
+    }
+    typingStopTimer = setTimeout(()=>{ sendTypingSignal(false); lastTypingSentAt = 0; }, 2200);
   }
-  const now = Date.now();
-  if(now - lastTypingSentAt > 1500){
-    lastTypingSentAt = now;
-    sendTypingSignal(true);
-  }
-  typingStopTimer = setTimeout(()=>{ sendTypingSignal(false); lastTypingSentAt = 0; }, 2200);
+  updateMentionPopup();
 });
+
+/* ---------------- @mentions ---------------- */
+let mentionActiveIndex = -1;
+let mentionCandidates = [];
+function getRoomMemberNames(){
+  const names = new Set();
+  state.members.forEach(n=>{ if(n && n !== state.myName) names.add(n); });
+  return [...names];
+}
+function currentMentionToken(){
+  const input = document.getElementById('msgInput');
+  const val = input.value;
+  const pos = input.selectionStart || val.length;
+  const upToCursor = val.slice(0, pos);
+  const m = upToCursor.match(/(^|\s)@([^\s@]*)$/);
+  if(!m) return null;
+  return { query: m[2], start: pos - m[2].length - 1, end: pos };
+}
+function updateMentionPopup(){
+  const popup = document.getElementById('mentionPopup');
+  const token = currentMentionToken();
+  if(!token){ popup.classList.remove('active'); mentionCandidates = []; return; }
+  const q = token.query.toLowerCase();
+  mentionCandidates = getRoomMemberNames().filter(n=> n.toLowerCase().startsWith(q));
+  if(!mentionCandidates.length){ popup.classList.remove('active'); return; }
+  mentionActiveIndex = 0;
+  popup.innerHTML = '';
+  mentionCandidates.forEach((name, i)=>{
+    const row = document.createElement('div');
+    row.className = 'mention-item' + (i===0 ? ' hi' : '');
+    row.innerHTML = `<span class="mention-avatar">${escapeHtml(name.slice(0,1).toUpperCase())}</span><span>${escapeHtml(name)}</span>`;
+    row.addEventListener('mousedown', (e)=>{ e.preventDefault(); insertMention(name, token); });
+    popup.appendChild(row);
+  });
+  popup.classList.add('active');
+}
+function insertMention(name, token){
+  const input = document.getElementById('msgInput');
+  const val = input.value;
+  const before = val.slice(0, token.start);
+  const after = val.slice(token.end);
+  const inserted = '@' + name + ' ';
+  input.value = before + inserted + after;
+  const caret = before.length + inserted.length;
+  input.setSelectionRange(caret, caret);
+  input.focus();
+  document.getElementById('mentionPopup').classList.remove('active');
+  mentionCandidates = [];
+}
+document.getElementById('msgInput').addEventListener('keydown', (e)=>{
+  const popup = document.getElementById('mentionPopup');
+  if(!popup.classList.contains('active') || !mentionCandidates.length) return;
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault();
+    const items = [...popup.querySelectorAll('.mention-item')];
+    items[mentionActiveIndex]?.classList.remove('hi');
+    mentionActiveIndex = (mentionActiveIndex + (e.key==='ArrowDown'?1:-1) + items.length) % items.length;
+    items[mentionActiveIndex]?.classList.add('hi');
+  } else if(e.key === 'Enter' || e.key === 'Tab'){
+    e.preventDefault();
+    const token = currentMentionToken();
+    if(token && mentionCandidates[mentionActiveIndex]) insertMention(mentionCandidates[mentionActiveIndex], token);
+  } else if(e.key === 'Escape'){
+    popup.classList.remove('active');
+  }
+});
+
+/* Which room-member names are actually @mentioned in this text (exact-name match). */
+function detectMentions(text){
+  if(!text) return [];
+  return getRoomMemberNames().filter(name=>{
+    const re = new RegExp('(^|\\s)@' + name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '(\\s|$)', 'i');
+    return re.test(text);
+  });
+}
+/* Escape text, then wrap @name mentions in a highlighted span. */
+function renderTextWithMentions(text, mentions){
+  const escaped = escapeHtml(text);
+  if(!mentions || !mentions.length) return escaped;
+  let out = escaped;
+  mentions.forEach(name=>{
+    const re = new RegExp('(^|\\s)(@' + escapeHtml(name).replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(\\s|$)', 'gi');
+    out = out.replace(re, (m, p1, p2, p3)=> p1 + '<span class="msg-mention">' + p2 + '</span>' + p3);
+  });
+  return out;
+}
+/* A short ambient two-tone chime, played when someone @mentions you. */
+let mentionAudioCtx = null;
+function playMentionTone(){
+  try{
+    mentionAudioCtx = mentionAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = mentionAudioCtx;
+    const now = ctx.currentTime;
+    [ [880, now, 0.16], [1320, now + 0.11, 0.16] ].forEach(([freq, t, dur])=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.14, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t); osc.stop(t + dur + 0.02);
+    });
+  } catch(e){}
+}
 
 /* ---------------- HOST: create room ---------------- */
 document.getElementById('startBtn').addEventListener('click', async ()=>{
@@ -2448,18 +2803,24 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
       const wasMember = state.members.has(connId);
       const memberName = state.members.get(connId);
       state.conns.delete(connId);
-      state.members.delete(connId);
       joinReqQueue = joinReqQueue.filter(r => r.connId !== connId);
       if(memberName) hideTypingIndicator(memberName);
-      updatePeerCount();
       if(wasMember){
+        awayMembers.add(memberName);
+        addMessage({system:true, text:(memberName||'Someone') + '\u2019s connection dropped \u2014 reconnecting\u2026'});
+        broadcastRoster();
         if(pendingLeaves.has(memberName)) clearTimeout(pendingLeaves.get(memberName));
         const timer = setTimeout(()=>{
           pendingLeaves.delete(memberName);
+          awayMembers.delete(memberName);
+          state.members.delete(connId);
           addMessage({system:true, text:(memberName||'Someone') + ' left the room'});
           broadcastRoster();
         }, 8000);
         pendingLeaves.set(memberName, timer);
+      } else {
+        state.members.delete(connId);
+        updatePeerCount();
       }
     });
   });
@@ -2652,14 +3013,18 @@ async function sendMessage(){
   const text = input.value.trim();
   if(!text) return;
   input.value = '';
+  document.getElementById('mentionPopup').classList.remove('active');
   clearTimeout(typingStopTimer);
   sendTypingSignal(false);
   lastTypingSentAt = 0;
   const ts = Date.now();
   const id = randomCode(10);
-  addMessage({who:state.myName, text, mine:true, ts, id});
+  const replyTo = replyContext;
+  clearReplyContext();
+  const mentions = detectMentions(text);
+  addMessage({who:state.myName, text, mine:true, ts, id, replyTo, mentions});
 
-  const payload = await encryptObj(state.key, {type:'chat', name: state.myName, text, ts, id});
+  const payload = await encryptObj(state.key, {type:'chat', name: state.myName, text, ts, id, replyTo, mentions});
   sendPayloadToPeers(payload);
 }
 /* Tapping the send button normally blurs the text input first (the browser's
@@ -2676,7 +3041,13 @@ document.getElementById('sendBtn').addEventListener('click', ()=>{
   const input = document.getElementById('msgInput');
   if(document.activeElement !== input) input.focus({preventScroll:true});
 });
-document.getElementById('msgInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendMessage(); });
+document.getElementById('msgInput').addEventListener('keydown', (e)=>{
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  sendMessage();
+  const input = document.getElementById('msgInput');
+  if(document.activeElement !== input) input.focus({preventScroll:true});
+});
 
 /* ---------------- sending photos & files (chunked, so large ones actually arrive) ---------------- */
 const CHUNK_SIZE = 15000;
@@ -2877,6 +3248,18 @@ document.getElementById('screenShareBtn').addEventListener('click', async ()=>{
   if(!ssIsSharing) await startScreenShare();
 });
 document.getElementById('ssCloseBtn').addEventListener('click', closeScreenShareModal);
+let ssCaptionsVisible = true;
+function setSsCaptionsBtnState(visible){
+  const btn = document.getElementById('ssCaptionsBtn');
+  btn.classList.toggle('captions-on', visible);
+  btn.title = visible ? 'Hide captions' : 'Show captions';
+  document.getElementById('ssCaptionBar').style.display = visible ? '' : 'none';
+}
+document.getElementById('ssCaptionsBtn').addEventListener('click', ()=>{
+  ssCaptionsVisible = !ssCaptionsVisible;
+  setSsCaptionsBtnState(ssCaptionsVisible);
+});
+setSsCaptionsBtnState(ssCaptionsVisible);
 
 function updateSsChrome(){
   const anySharing = ssTiles.size > 0;
@@ -3067,11 +3450,61 @@ function handleScreenShareSignal(obj, fromConnId){
    depends on who is or isn't sharing their screen. */
 let micStream = null;
 let micOn = false;
+let myLevelMeterStop = null;
 let micOutgoingCalls = new Map();   // real peer id -> MediaConnection, only while my mic is on
 let micIncoming = new Map();        // real peer id -> {audioEl}
 
 function canUseMic(){
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+/* ---------------- live voice-level equalizer (ChatGPT-style bars next to the
+   floating caption text) ---------------- */
+let sharedAudioCtx = null;
+function getSharedAudioCtx(){
+  sharedAudioCtx = sharedAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  return sharedAudioCtx;
+}
+function startLevelMeter(stream, onLevel){
+  let stopped = false;
+  let ctx, analyser, source, data, raf;
+  try{
+    ctx = getSharedAudioCtx();
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.6;
+    source = ctx.createMediaStreamSource(stream);
+    source.connect(analyser);
+    data = new Uint8Array(analyser.frequencyBinCount);
+  } catch(e){ return ()=>{}; }
+  (function tick(){
+    if(stopped) return;
+    analyser.getByteFrequencyData(data);
+    let sum = 0;
+    for(let i=0;i<data.length;i++) sum += data[i];
+    const level = Math.min(1, (sum / data.length) / 90);
+    onLevel(level);
+    raf = requestAnimationFrame(tick);
+  })();
+  return function stop(){
+    stopped = true;
+    cancelAnimationFrame(raf);
+    onLevel(0);
+    try{ source.disconnect(); }catch(e){}
+  };
+}
+function setCaptionRowLevel(name, level){
+  const activeId = captionActiveBySpeaker.get(name);
+  const entry = activeId ? captionQueue.find(e=> e.id === activeId) : null;
+  if(!entry) return;
+  [entry.mainEl, entry.ssEl].forEach(el=>{
+    if(!el) return;
+    const bars = el.querySelectorAll('.caption-eq span');
+    bars.forEach((bar, i)=>{
+      const jitter = 0.55 + Math.random() * 0.9;
+      const h = 3 + Math.round(level * jitter * 13);
+      bar.style.height = Math.max(3, Math.min(16, h)) + 'px';
+    });
+  });
 }
 function setMicButtonsState(on){
   [document.getElementById('micBtn'), document.getElementById('ssMicBtn')].forEach(btn=>{
@@ -3104,6 +3537,7 @@ async function toggleMic(){
   micOn = true;
   setMicButtonsState(true);
   callAllPeersWithMic();
+  myLevelMeterStop = startLevelMeter(micStream, (lvl)=> setCaptionRowLevel(state.myName, lvl));
   // Captions are now just a visible-by-default side effect of talking —
   // no separate toggle to hunt for. If this browser can't do speech
   // recognition, startCaptions() just quietly no-ops.
@@ -3112,6 +3546,7 @@ async function toggleMic(){
 function stopMic(){
   micOn = false;
   setMicButtonsState(false);
+  if(myLevelMeterStop){ myLevelMeterStop(); myLevelMeterStop = null; }
   if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
   micOutgoingCalls.forEach(call=>{ try{ call.close(); }catch(e){} });
   micOutgoingCalls.clear();
@@ -3138,6 +3573,7 @@ function syncMicToRoster(){
 function handleIncomingMicCall(call){
   call.answer(); // receive-only on this connection — if I want to talk back, that's my own separate outgoing call to them
   const peerId = call.peer;
+  const name = resolvePeerName(peerId);
   call.on('stream', (remoteStream)=>{
     let entry = micIncoming.get(peerId);
     if(!entry){
@@ -3146,17 +3582,20 @@ function handleIncomingMicCall(call){
       audioEl.setAttribute('playsinline','');
       audioEl.style.display = 'none';
       document.body.appendChild(audioEl);
-      entry = {audioEl};
+      entry = {audioEl, levelMeterStop:null};
       micIncoming.set(peerId, entry);
     }
     entry.audioEl.srcObject = remoteStream;
     entry.audioEl.play().catch(()=>{});
+    if(entry.levelMeterStop) entry.levelMeterStop();
+    entry.levelMeterStop = startLevelMeter(remoteStream, (lvl)=> setCaptionRowLevel(name, lvl));
   });
   call.on('close', ()=> removeMicIncoming(peerId));
 }
 function removeMicIncoming(peerId){
   const entry = micIncoming.get(peerId);
   if(!entry) return;
+  if(entry.levelMeterStop) entry.levelMeterStop();
   try{ entry.audioEl.srcObject = null; entry.audioEl.remove(); }catch(e){}
   micIncoming.delete(peerId);
 }
@@ -3289,7 +3728,7 @@ let captionSeq = 0;
 function makeCaptionRow(){
   const row = document.createElement('div');
   row.className = 'caption-row';
-  row.innerHTML = `<span class="caption-name"></span><span class="caption-text"></span>`;
+  row.innerHTML = `<span class="caption-eq"><span></span><span></span><span></span><span></span></span><span class="caption-name"></span><span class="caption-text"></span>`;
   return row;
 }
 function removeCaptionEntry(entry, immediate){

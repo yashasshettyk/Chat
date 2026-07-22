@@ -3538,10 +3538,14 @@ async function toggleMic(){
   setMicButtonsState(true);
   callAllPeersWithMic();
   myLevelMeterStop = startLevelMeter(micStream, (lvl)=> setCaptionRowLevel(state.myName, lvl));
-  // Captions are now just a visible-by-default side effect of talking —
-  // no separate toggle to hunt for. If this browser can't do speech
-  // recognition, startCaptions() just quietly no-ops.
-  startCaptions();
+  // Captions are a visible-by-default side effect of talking — no separate
+  // toggle to hunt for — but only on desktop. On mobile, speech recognition
+  // repeatedly stops/restarts itself in the background, which cycles the
+  // device mic indicator and looks like the mic randomly turning on and off,
+  // even though the actual call audio stays connected the whole time. If
+  // this browser can't do speech recognition, startCaptions() just quietly
+  // no-ops anyway.
+  if(!isMobileDevice()) startCaptions();
 }
 function stopMic(){
   micOn = false;
@@ -3631,6 +3635,17 @@ let captionFastFailStreak = 0;  // consecutive restarts that happened almost ins
 
 function canUseCaptions(){
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+// Speech recognition needs its own independent getUserMedia grant, separate
+// from the WebRTC call mic. On mobile browsers that session silently ends
+// itself every few seconds of quiet and restarts — and each restart cycles
+// the device's mic indicator, which shows up to the user as "the mic keeps
+// opening and closing" even though the actual call audio never drops. On
+// desktop this restart is invisible/inaudible, so only mobile needs to opt
+// out of the auto-on-when-you-talk behavior.
+function isMobileDevice(){
+  return /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent || '')
+    || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));
 }
 function startCaptionRecognition(){
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -3774,6 +3789,14 @@ function renderCaption(name, text, final){
     // Their next utterance becomes a fresh line rather than editing this one.
     captionActiveBySpeaker.delete(name);
     entry.timeout = setTimeout(()=> removeCaptionEntry(entry), 5000);
+  } else {
+    // Still interim (not final yet). Normally the next interim/final result
+    // keeps refreshing this timer — but mobile speech recognition can end a
+    // session mid-sentence (silence timeout) and never send a final result
+    // at all, which used to leave this line stuck on screen forever. Give
+    // every interim line its own stale-guard so it clears itself if nothing
+    // further ever arrives for it.
+    entry.timeout = setTimeout(()=> removeCaptionEntry(entry), 4000);
   }
 }
 function clearCaption(name){

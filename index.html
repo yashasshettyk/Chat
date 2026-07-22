@@ -8,10 +8,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js" defer></script>
 <style>
   .material-symbols-outlined{
     font-family:'Material Symbols Outlined';
@@ -441,15 +441,6 @@
   @keyframes qrScan{ 0%{ top:16px; } 50%{ top:calc(100% - 18px); } 100%{ top:16px; } }
   .qr-generating-text{ position:absolute; bottom:14px; left:0; right:0; text-align:center; font-size:11px; color:var(--muted); letter-spacing:0.04em; }
 
-  /* ---------- in-app QR camera scanner ---------- */
-  .qr-scanner-modal{ position:fixed; inset:0; height:var(--app-height, 100dvh); background:#0a0d12; display:none; z-index:135; flex-direction:column; }
-  .qr-scanner-modal.active{ display:flex; }
-  .qr-scanner-video-wrap{ position:relative; flex:1; overflow:hidden; background:#000; display:flex; align-items:center; justify-content:center; }
-  .qr-scanner-video-wrap video{ width:100%; height:100%; object-fit:cover; }
-  .qr-scanner-frame{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:min(64vw,260px); height:min(64vw,260px); pointer-events:none; }
-  .qr-scanner-frame .qr-corner{ border-color:#fff; opacity:0.9; }
-  .qr-scanner-status{ position:absolute; left:0; right:0; bottom:calc(18px + env(safe-area-inset-bottom)); text-align:center; color:#fff; font-family:'Inter',sans-serif; font-size:13px; padding:0 24px; }
-  .qr-scanner-status.error{ color:#ff8f8f; }
 
   .info-row{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
   .info-value{ flex:1; min-width:0; font-size:13.5px; color:var(--text); background:var(--surface-2); border:1px solid var(--border); padding:9px 11px; border-radius:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -491,7 +482,6 @@
   .ss-header .ss-title{ font-family:'Space Grotesk',sans-serif; font-size:14px; display:flex; align-items:center; gap:8px; }
   .ss-live-dot{ width:8px; height:8px; border-radius:50%; background:#e0575c; animation:pulse 1.4s ease-in-out infinite; }
   .ss-close{ background:rgba(255,255,255,0.1); border:none; color:#fff; width:34px; height:34px; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  .ss-close.qr-lens-btn{ width:auto; min-width:34px; padding:0 10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; letter-spacing:0.01em; }
   .qr-focus-ring{ position:absolute; width:64px; height:64px; border:2px solid #fff; border-radius:50%; pointer-events:none; opacity:0; transform:translate(-50%,-50%) scale(1.3); box-shadow:0 0 10px rgba(0,0,0,0.5); }
   .qr-focus-ring.pulse{ animation:qrFocusPulse .55s ease-out; }
   @keyframes qrFocusPulse{ 0%{ opacity:1; transform:translate(-50%,-50%) scale(1.3); } 100%{ opacity:0; transform:translate(-50%,-50%) scale(1); } }
@@ -678,7 +668,6 @@
       </div>
       <p class="error" id="joinError"></p>
       <button class="btn btn-primary" id="joinBtn">Join room</button>
-      <button class="btn btn-ghost" id="joinScanQrBtn" style="margin-top:8px; display:flex; align-items:center; justify-content:center; gap:8px;"><span class="material-symbols-outlined" style="font-size:16px;">qr_code_scanner</span>Scan QR code</button>
     </div>
 
     <!-- WAITING (host, after create) -->
@@ -975,26 +964,6 @@
   </div>
 </div>
 
-<!-- In-app QR camera scanner (used from Join tab) -->
-<div class="qr-scanner-modal" id="qrScannerModal">
-  <div class="ss-header">
-    <div class="ss-title"><span>Scan a Cipher QR code</span></div>
-    <div style="display:flex; align-items:center; gap:8px;">
-      <button class="ss-close qr-lens-btn" id="qrLensBtn" title="Switch lens" style="display:none;"><span id="qrLensLabel">1x</span></button>
-      <button class="ss-close" id="qrScannerCloseBtn"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
-    </div>
-  </div>
-  <div class="qr-scanner-video-wrap" id="qrScannerVideoWrap">
-    <video id="qrScannerVideo" playsinline muted></video>
-    <div class="qr-focus-ring" id="qrFocusRing"></div>
-    <div class="qr-scanner-frame">
-      <div class="qr-corner tl"></div><div class="qr-corner tr"></div><div class="qr-corner bl"></div><div class="qr-corner br"></div>
-    </div>
-    <div class="qr-scanner-status" id="qrScannerStatus">Point your camera at a Cipher invite QR code</div>
-  </div>
-  <canvas id="qrScannerCanvas" style="display:none;"></canvas>
-</div>
-
 <script>
 /* ===================== icons (Google Material Symbols — a real icon font) =====================
    Every icon in this app (shapes, toolbar, chat, header) is a real Material
@@ -1162,7 +1131,7 @@ document.getElementById('applyThemeEveryone').addEventListener('click', ()=>{
 });
 
 /* ---------------- themed modal helper (replaces confirm()/alert()) ---------------- */
-function showModal({title, body, confirmText='Confirm', cancelText='Cancel', danger=false, onConfirm, hideCancel=false}){
+function showModal({title, body, confirmText='Confirm', cancelText='Cancel', danger=false, onConfirm, onCancel, hideCancel=false, preventBackdropClose=false}){
   const backdrop = document.getElementById('modalBackdrop');
   document.getElementById('modalActions').style.display = 'flex';
   document.getElementById('modalTitle').textContent = title || 'Are you sure?';
@@ -1174,16 +1143,19 @@ function showModal({title, body, confirmText='Confirm', cancelText='Cancel', dan
   cancelBtn.style.display = hideCancel ? 'none' : 'block';
   document.getElementById('modalIcon').className = 'modal-icon' + (danger ? ' danger' : '');
   backdrop.classList.add('active');
+  backdrop.dataset.preventBackdropClose = preventBackdropClose ? '1' : '';
 
   function cleanup(){
     backdrop.classList.remove('active');
     confirmBtn.onclick = null; cancelBtn.onclick = null;
   }
   confirmBtn.onclick = ()=>{ cleanup(); if(onConfirm) onConfirm(); };
-  cancelBtn.onclick = ()=> cleanup();
+  cancelBtn.onclick = ()=>{ cleanup(); if(onCancel) onCancel(); };
 }
 document.getElementById('modalBackdrop').addEventListener('click', (e)=>{
-  if(e.target.id === 'modalBackdrop') document.getElementById('modalCancelBtn').click();
+  if(e.target.id !== 'modalBackdrop') return;
+  if(e.currentTarget.dataset.preventBackdropClose === '1') return;
+  document.getElementById('modalCancelBtn').click();
 });
 
 /* ---------------- animated QR code for the invite link ---------------- */
@@ -1330,6 +1302,35 @@ const ICE_CONFIG = {
   ]
 };
 
+/* ---------------- signaling connection watchdog ----------------
+   PeerJS's 'disconnected' event used to trigger exactly one reconnect()
+   call. If that single attempt itself failed — a brief network hiccup, or
+   a mobile browser just waking a tab it had frozen in the background —
+   nothing ever retried it. The peer was then stuck disconnected for the
+   rest of the session: the tab still looked perfectly open to whoever was
+   using it, but nobody new could actually reach it, which is exactly what
+   showed up as "Could not connect, make sure the host still has the room
+   open" even though the host insisted they hadn't closed anything.
+   This backs that up with a self-retrying watchdog (backing off up to 8s
+   between tries) that keeps going until the connection is actually back,
+   plus a check on tab visibility change — since a killed background
+   socket doesn't always fire a clean event when the OS tears it down. */
+let signalWatchdogTimer = null;
+let signalReconnectAttempts = 0;
+function attemptPeerReconnect(){
+  clearTimeout(signalWatchdogTimer);
+  if(!state.peer || state.leavingIntentionally || state.peer.destroyed) return;
+  if(!state.peer.disconnected){ signalReconnectAttempts = 0; return; }
+  signalReconnectAttempts++;
+  try{ state.peer.reconnect(); }catch(e){}
+  const delay = Math.min(1000 * signalReconnectAttempts, 8000);
+  signalWatchdogTimer = setTimeout(attemptPeerReconnect, delay);
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState !== 'visible') return;
+  if(state.peer && state.peer.disconnected && !state.leavingIntentionally) attemptPeerReconnect();
+});
+
 /* ---------------- UI wiring: tabs ---------------- */
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click', ()=>{
@@ -1407,288 +1408,6 @@ function parseInviteHash(){
 }
 parseInviteHash();
 
-// The <script> tag for jsQR lives in <head> and should normally be ready
-// long before anyone taps "Scan QR code", but on a slow first load or a
-// flaky CDN hit it's possible to reach here before it's finished (or after
-// it failed outright). Try one dynamic reload before giving up, since
-// silently never being able to decode anything is a much worse experience
-// than a one-time extra network request.
-function ensureJsQRLoaded(){
-  if(window.jsQR) return Promise.resolve(true);
-  return new Promise((resolve)=>{
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js';
-    s.onload = ()=> resolve(!!window.jsQR);
-    s.onerror = ()=> resolve(false);
-    document.head.appendChild(s);
-    setTimeout(()=> resolve(!!window.jsQR), 4000);
-  });
-}
-/* ---------------- in-app QR camera scanner ----------------
-   Used from the Join tab: scan someone's invite QR straight into the
-   room/security code fields. */
-let qrScannerStream = null;
-let qrScannerRAF = null;
-let qrCameraDevices = [];   // rear-facing videoinput devices, populated once we
-                             // have camera permission (device labels are blank
-                             // until then, so this list can only be built after
-                             // the first getUserMedia call succeeds)
-let qrCameraIndex = 0;
-let qrNoResultFrames = 0;
-function isLikelyRearCamera(label){
-  const l = (label || '').toLowerCase();
-  if(!l) return true; // unlabeled — don't assume it's the front camera
-  return !(l.includes('front') || l.includes('user') || l.includes('selfie') || l.includes('face'));
-}
-async function refreshQrCameraDevices(activeDeviceId){
-  if(!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices)){ qrCameraDevices = []; return; }
-  try{
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const rear = devices.filter(d => d.kind === 'videoinput' && isLikelyRearCamera(d.label));
-    // Put whichever lens is actually active right now first, so the first
-    // tap of the switch button moves to a genuinely different lens.
-    if(activeDeviceId){
-      const idx = rear.findIndex(d => d.deviceId === activeDeviceId);
-      if(idx > 0){ const [active] = rear.splice(idx, 1); rear.unshift(active); }
-    }
-    qrCameraDevices = rear;
-  } catch(e){ qrCameraDevices = []; }
-}
-// Guesses a human "1x / 0.5x / 2x" style label for whichever lens is
-// currently active — this button switches between a phone's rear lenses
-// (e.g. ultra-wide vs main), never to the front camera, so it should read
-// like a zoom level rather than show a front/back "switch camera" icon.
-function guessLensLabel(track, deviceIndex){
-  try{
-    const caps = track && track.getCapabilities ? track.getCapabilities() : null;
-    if(caps && caps.zoom && typeof caps.zoom.min === 'number'){
-      if(caps.zoom.min <= 0.6) return '0.5x';
-      if(caps.zoom.min >= 1.8) return '2x';
-      return '1x';
-    }
-  } catch(e){}
-  const label = (track && track.label || '').toLowerCase();
-  if(label.includes('ultra') || label.includes('0.5')) return '0.5x';
-  if(label.includes('tele') || label.includes('2x') || label.includes('zoom')) return '2x';
-  // No usable capability/label info — fall back to a stable per-device guess
-  // (first rear lens found is almost always the main 1x one).
-  return deviceIndex === 0 ? '1x' : '0.5x';
-}
-function updateQrLensLabel(track){
-  const label = document.getElementById('qrLensLabel');
-  if(label) label.textContent = guessLensLabel(track, qrCameraIndex);
-}
-async function applyQrTrackTuning(stream){
-  try{
-    const track = stream.getVideoTracks()[0];
-    const caps = track && track.getCapabilities ? track.getCapabilities() : null;
-    if(!(caps && track.applyConstraints)) return;
-    const advanced = [];
-    // Where the device reports a zoom range (values below 1 are usually the
-    // ultra-wide lens), explicitly pin it to 1x instead of whatever the
-    // browser picked as its "default".
-    if(caps.zoom) advanced.push({ zoom: Math.min(Math.max(1, caps.zoom.min), caps.zoom.max) });
-    // Continuous autofocus is what actually lets the camera lock onto a QR
-    // code held at close range — without it some phones default to a fixed
-    // far-field focus and the scanner never manages to read anything, which
-    // looks exactly like "nothing happens" when scanning.
-    if(caps.focusMode && caps.focusMode.includes('continuous')) advanced.push({ focusMode: 'continuous' });
-    if(advanced.length) await track.applyConstraints({ advanced }).catch(()=>{});
-  } catch(e){}
-}
-// Nudges the camera to refocus on tap — full manual point-of-interest focus
-// isn't reliably exposed on the web, so this briefly drops out of continuous
-// focus and back in, which makes most phone cameras actively re-hunt for
-// focus rather than sit on a stale lock. Always shows the tap ring so there's
-// visible feedback either way.
-async function nudgeQrFocus(x, y){
-  const ring = document.getElementById('qrFocusRing');
-  if(ring){
-    ring.style.left = x + 'px';
-    ring.style.top = y + 'px';
-    ring.classList.remove('pulse');
-    void ring.offsetWidth; // restart the animation
-    ring.classList.add('pulse');
-  }
-  if(!qrScannerStream) return;
-  try{
-    const track = qrScannerStream.getVideoTracks()[0];
-    const caps = track && track.getCapabilities ? track.getCapabilities() : null;
-    if(!(caps && caps.focusMode && track.applyConstraints)) return;
-    if(caps.focusMode.includes('single-shot')){
-      await track.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] }).catch(()=>{});
-    }
-    if(caps.focusMode.includes('continuous')){
-      setTimeout(()=>{ track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(()=>{}); }, 250);
-    }
-  } catch(e){}
-}
-async function getQrStream(deviceId){
-  const primary = deviceId
-    ? { video: { deviceId: { exact: deviceId }, zoom: 1, focusMode: 'continuous' } }
-    : { video: { facingMode: 'environment', zoom: 1, focusMode: 'continuous' } };
-  try{
-    return await navigator.mediaDevices.getUserMedia(primary);
-  } catch(e){
-    // Some browsers reject an unsupported 'zoom'/'focusMode' constraint
-    // outright — retry once without them before giving up.
-    const fallback = deviceId
-      ? { video: { deviceId: { exact: deviceId } } }
-      : { video: { facingMode: 'environment' } };
-    return await navigator.mediaDevices.getUserMedia(fallback);
-  }
-}
-function updateQrLensBtnVisibility(){
-  const btn = document.getElementById('qrLensBtn');
-  if(btn) btn.style.display = qrCameraDevices.length > 1 ? 'flex' : 'none';
-}
-function stopQrScanner(){
-  if(qrScannerRAF){ cancelAnimationFrame(qrScannerRAF); qrScannerRAF = null; }
-  if(qrScannerStream){ qrScannerStream.getTracks().forEach(t=>t.stop()); qrScannerStream = null; }
-  document.getElementById('qrScannerModal').classList.remove('active');
-}
-async function openQrScanner(onResult){
-  const modal = document.getElementById('qrScannerModal');
-  const video = document.getElementById('qrScannerVideo');
-  const canvas = document.getElementById('qrScannerCanvas');
-  const status = document.getElementById('qrScannerStatus');
-  status.classList.remove('error');
-  status.textContent = 'Point your camera at a Cipher invite QR code';
-  document.getElementById('qrLensBtn').style.display = 'none';
-  modal.classList.add('active');
-  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
-    status.classList.add('error');
-    status.textContent = "This browser doesn't support camera access.";
-    return;
-  }
-  // If the jsQR library failed to load (blocked CDN, offline, ad-blocker,
-  // slow network on first load, etc.) the camera preview still opens fine
-  // but every single frame silently comes back with "no code found" forever
-  // — which looks exactly like "I scanned it and nothing happened". Catch
-  // that up front instead of running a scanner that can never succeed.
-  if(!(await ensureJsQRLoaded())){
-    status.classList.add('error');
-    status.textContent = "The QR scanner didn't load properly. Check your connection and reload the page, then try again.";
-    return;
-  }
-  qrCameraDevices = [];
-  qrCameraIndex = 0;
-  qrNoResultFrames = 0;
-  try{
-    qrScannerStream = await getQrStream();
-  } catch(e){
-    status.classList.add('error');
-    status.textContent = "Couldn't access the camera — check your browser's camera permission for this site.";
-    return;
-  }
-  await applyQrTrackTuning(qrScannerStream);
-  const activeTrack = qrScannerStream.getVideoTracks()[0];
-  const activeDeviceId = activeTrack && activeTrack.getSettings ? activeTrack.getSettings().deviceId : null;
-  await refreshQrCameraDevices(activeDeviceId);
-  updateQrLensBtnVisibility();
-  updateQrLensLabel(activeTrack);
-  video.muted = true;
-  video.playsInline = true;
-  video.srcObject = qrScannerStream;
-  await video.play().catch(()=>{});
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const tick = ()=>{
-    if(!qrScannerStream) return;
-    // Everything below can throw for all sorts of device-specific reasons
-    // (a transient decode error, a 0x0 frame before metadata is ready,
-    // etc). Before this, any such error would silently kill the whole
-    // requestAnimationFrame loop — the preview would keep showing a live
-    // picture forever while scanning had actually stopped dead in the
-    // background, which is indistinguishable from "nothing happens".
-    // Catching it and always re-scheduling the next frame means a single
-    // bad frame can never permanently break scanning.
-    try{
-      if(video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth && video.videoHeight){
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        // attemptBoth checks both normal and color-inverted QR codes (dark
-        // background invites), which the default option can otherwise miss.
-        const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
-        if(code && code.data){
-          stopQrScanner();
-          onResult(code.data);
-          return;
-        }
-        qrNoResultFrames++;
-        // If it's been scanning for a while with no luck, the most common
-        // real-world cause is the camera not focusing at close range — give
-        // it a nudge automatically rather than leaving it stuck forever.
-        if(qrNoResultFrames === 240) refocusQrSilently();
-        // After a longer stretch with no result at all, say so — silence
-        // otherwise looks identical whether it's still trying or long dead.
-        if(qrNoResultFrames === 600 && !status.classList.contains('error')){
-          status.textContent = 'Still looking — try moving closer, holding steady, or reducing glare on the code.';
-        }
-      }
-    } catch(err){
-      // Swallow and keep scanning; a single bad frame shouldn't end the session.
-    }
-    qrScannerRAF = requestAnimationFrame(tick);
-  };
-  qrScannerRAF = requestAnimationFrame(tick);
-}
-function refocusQrSilently(){
-  if(!qrScannerStream) return;
-  const track = qrScannerStream.getVideoTracks()[0];
-  const caps = track && track.getCapabilities ? track.getCapabilities() : null;
-  if(!(caps && caps.focusMode && track.applyConstraints)) return;
-  if(caps.focusMode.includes('single-shot')){
-    track.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] }).catch(()=>{});
-    if(caps.focusMode.includes('continuous')){
-      setTimeout(()=>{ track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(()=>{}); }, 250);
-    }
-  }
-}
-async function switchQrLens(){
-  if(qrCameraDevices.length < 2) return;
-  const status = document.getElementById('qrScannerStatus');
-  qrCameraIndex = (qrCameraIndex + 1) % qrCameraDevices.length;
-  const nextDeviceId = qrCameraDevices[qrCameraIndex].deviceId;
-  if(qrScannerStream){ qrScannerStream.getTracks().forEach(t=>t.stop()); qrScannerStream = null; }
-  let newStream;
-  try{
-    newStream = await getQrStream(nextDeviceId);
-  } catch(e){
-    status.classList.add('error');
-    status.textContent = "Couldn't switch cameras.";
-    return;
-  }
-  await applyQrTrackTuning(newStream);
-  qrScannerStream = newStream;
-  qrNoResultFrames = 0;
-  const video = document.getElementById('qrScannerVideo');
-  video.srcObject = qrScannerStream;
-  await video.play().catch(()=>{});
-  updateQrLensLabel(newStream.getVideoTracks()[0]);
-  status.classList.remove('error');
-  status.textContent = 'Point your camera at a Cipher invite QR code';
-}
-document.getElementById('qrScannerCloseBtn').addEventListener('click', stopQrScanner);
-document.getElementById('qrLensBtn').addEventListener('click', switchQrLens);
-document.getElementById('qrScannerVideoWrap').addEventListener('pointerdown', (e)=>{
-  // Ignore taps that land on the header buttons layered above the video.
-  if(e.target.closest('.ss-close')) return;
-  const rect = e.currentTarget.getBoundingClientRect();
-  qrNoResultFrames = 0;
-  nudgeQrFocus(e.clientX - rect.left, e.clientY - rect.top);
-});
-document.getElementById('joinScanQrBtn').addEventListener('click', ()=>{
-  openQrScanner((text)=>{
-    const payload = decodeInvitePayloadFromText(text);
-    if(applyInvitePayload(payload)){
-      showError('joinError','');
-    } else {
-      showError('joinError',"That QR code isn't a Cipher invite code.");
-    }
-  });
-});
 /* ---------------- chat rendering ---------------- */
 function attachMessageActions(el, isSystem, msgId, mine, preview){
   if(isSystem) return;
@@ -1995,7 +1714,7 @@ function fileChipHtml(name, dataUrl, sizeLabel){
 function addMessage({who, text, mine, system, ts, image, file, id, replyTo, mentions}){
   const box = document.getElementById('messages');
   const el = document.createElement('div');
-  const time = ts ? new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+  const time = ts ? formatMsgTime(ts) : '';
   const quote = replyQuoteHtml(replyTo);
   let preview = text || (image ? 'Photo' : (file ? file.name : ''));
   if(system){
@@ -2075,6 +1794,13 @@ function animateBigEmoji(container, emoji){
 }
 function isNearBottom(box){ return box.scrollHeight - box.scrollTop - box.clientHeight < 200; }
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+// Always 12-hour (h:mm AM/PM), regardless of the device's regional format —
+// toLocaleTimeString([]) was following the OS locale, which on plenty of
+// phones (India, UK, most of Europe, etc.) defaults to 24-hour time.
+function formatMsgTime(ts){
+  if(!ts) return '';
+  return new Date(ts).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
+}
 
 /* ---------------- message action sheet (delete for me / everyone) ---------------- */
 function openMsgActionSheet(msgId){
@@ -2160,7 +1886,7 @@ function setProgressPaused(buf, paused){
 }
 function finalizeIncomingFile(buf, dataUrl, msgId){
   const el = buf.el;
-  const time = buf.ts ? new Date(buf.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+  const time = buf.ts ? formatMsgTime(buf.ts) : '';
   el.classList.remove('progress-msg');
   let preview = buf.isImage ? 'Photo' : (buf.fileName || 'File');
   if(buf.isImage){
@@ -2178,7 +1904,7 @@ function finalizeIncomingFile(buf, dataUrl, msgId){
 
 function finalizeSentFile(buf, dataUrl, msgId){
   const el = buf.el;
-  const time = buf.ts ? new Date(buf.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+  const time = buf.ts ? formatMsgTime(buf.ts) : '';
   el.classList.remove('progress-msg');
   let preview = buf.isImage ? 'Photo' : (buf.fileName || 'File');
   if(buf.isImage){
@@ -2787,12 +2513,14 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
     document.getElementById('panel-waiting').classList.add('active');
     renderScrambledCode(roomCode);
     btn.disabled = false; btn.textContent = 'Create room';
+    scheduleRoomExpiryCheck();
   });
 
   peer.on('disconnected', ()=>{
     if(state.leavingIntentionally) return;
     showReconnectBanner();
-    setTimeout(()=>{ try{ peer.reconnect(); }catch(e){} }, 1000);
+    signalReconnectAttempts = 0;
+    setTimeout(attemptPeerReconnect, 1000);
   });
 
   peer.on('connection', (conn)=>{
@@ -2862,7 +2590,8 @@ document.getElementById('joinBtn').addEventListener('click', async ()=>{
   });
   peer.on('disconnected', ()=>{
     if(state.leavingIntentionally) return;
-    try{ peer.reconnect(); }catch(e){}
+    signalReconnectAttempts = 0;
+    attemptPeerReconnect();
   });
   peer.on('call', (call)=> handleIncomingCall(call));
   peer.on('error', (err)=>{
@@ -4452,14 +4181,64 @@ async function broadcastHostClosing(){
     await new Promise(r=> setTimeout(r, 200)); // give it a beat to actually go out
   }catch(e){}
 }
+async function leaveRoomNow(){
+  state.leavingIntentionally = true;
+  clearTimeout(roomExpiryTimer);
+  clearTimeout(roomAutoCloseTimer);
+  await broadcastHostClosing();
+  try{ state.peer && state.peer.destroy(); }catch(e){}
+  location.reload();
+}
 document.getElementById('leaveBtn').addEventListener('click', ()=>{
-  confirmLeaveRoom(async ()=>{
-    state.leavingIntentionally = true;
-    await broadcastHostClosing();
-    try{ state.peer && state.peer.destroy(); }catch(e){}
-    location.reload();
-  });
+  confirmLeaveRoom(leaveRoomNow);
 });
+
+/* ---------------- room auto-expiry (host only) ----------------
+   Rooms are capped at 1 hour. When the clock runs out, the host (and only
+   the host — joiners never see this) gets asked whether to keep going.
+   "Continue" resets the clock for another hour. "Close room" ends it for
+   everyone right away, same as tapping Leave. If the host doesn't answer
+   within 60 seconds — tab backgrounded, stepped away, whatever — the room
+   closes itself automatically rather than sitting open unattended. */
+const ROOM_MAX_LIFETIME_MS = 60 * 60 * 1000;
+const ROOM_EXPIRY_RESPONSE_MS = 60 * 1000;
+let roomExpiryTimer = null;
+let roomAutoCloseTimer = null;
+function scheduleRoomExpiryCheck(){
+  if(!state.isHost) return;
+  clearTimeout(roomExpiryTimer);
+  roomExpiryTimer = setTimeout(promptRoomExpiry, ROOM_MAX_LIFETIME_MS);
+}
+function promptRoomExpiry(){
+  if(!state.isHost || !state.peer || state.peer.destroyed) return;
+  let answered = false;
+  roomAutoCloseTimer = setTimeout(()=>{
+    if(answered) return;
+    answered = true;
+    document.getElementById('modalBackdrop').classList.remove('active');
+    leaveRoomNow();
+  }, ROOM_EXPIRY_RESPONSE_MS);
+  showModal({
+    title: 'Still there?',
+    body: "This room has been open for an hour. Keep it going for another hour, or close it now? It'll close automatically in a minute if there's no response.",
+    confirmText: 'Keep it open',
+    cancelText: 'Close room',
+    danger: false,
+    preventBackdropClose: true,
+    onConfirm: ()=>{
+      if(answered) return;
+      answered = true;
+      clearTimeout(roomAutoCloseTimer);
+      scheduleRoomExpiryCheck();
+    },
+    onCancel: ()=>{
+      if(answered) return;
+      answered = true;
+      clearTimeout(roomAutoCloseTimer);
+      leaveRoomNow();
+    }
+  });
+}
 
 /* In-app back button: while in the chat, pressing back shows our own themed
    confirmation instead of silently navigating away. We push a guard state
@@ -4478,6 +4257,8 @@ window.addEventListener('popstate', (e)=>{
   history.pushState({cipherGuard:true}, '');
   confirmLeaveRoom(async ()=>{
     state.leavingIntentionally = true;
+    clearTimeout(roomExpiryTimer);
+    clearTimeout(roomAutoCloseTimer);
     await broadcastHostClosing();
     try{ state.peer && state.peer.destroy(); }catch(e){}
     backGuardArmed = false;

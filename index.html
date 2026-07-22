@@ -9,6 +9,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.js"></script>
 <style>
   /* ============ THEMES ============
      Each user picks their own theme + chat background locally (saved in
@@ -179,6 +181,7 @@
   .inline-btn.full-btn{ width:100%; text-align:left; height:auto; padding:11px 13px; margin-bottom:8px; display:block; }
 
   .btn{ width:100%; padding:14px 0; border-radius:12px; border:none; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14.5px; cursor:pointer; transition:transform .12s ease, opacity .12s ease; }
+  .btn svg, .inline-btn svg{ vertical-align:-3px; margin-right:6px; }
   .btn-primary{ background:var(--accent); color:var(--on-accent); }
   .btn-primary:hover{ opacity:0.92; }
   .btn-primary:active{ transform:scale(0.985); }
@@ -217,6 +220,7 @@
   .icon-btn{ background:var(--surface-2); border:1px solid var(--border); color:var(--muted); border-radius:9px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
   .icon-btn:hover{ color:var(--accent); border-color:var(--accent); }
   .icon-btn.leave-btn:hover{ color:var(--danger); border-color:var(--danger); }
+  .icon-btn.mic-on{ color:var(--online); border-color:var(--online); }
 
   .conn-banner{ display:none; align-items:center; justify-content:center; gap:8px; background:var(--surface-2); color:var(--muted); font-size:12.5px; padding:8px; border-left:1px solid var(--border); border-right:1px solid var(--border); }
   .conn-banner.active{ display:flex; }
@@ -338,6 +342,16 @@
   @keyframes qrScan{ 0%{ top:16px; } 50%{ top:calc(100% - 18px); } 100%{ top:16px; } }
   .qr-generating-text{ position:absolute; bottom:14px; left:0; right:0; text-align:center; font-size:11px; color:var(--muted); letter-spacing:0.04em; }
 
+  /* ---------- in-app QR camera scanner ---------- */
+  .qr-scanner-modal{ position:fixed; inset:0; height:var(--app-height, 100dvh); background:#0a0d12; display:none; z-index:135; flex-direction:column; }
+  .qr-scanner-modal.active{ display:flex; }
+  .qr-scanner-video-wrap{ position:relative; flex:1; overflow:hidden; background:#000; display:flex; align-items:center; justify-content:center; }
+  .qr-scanner-video-wrap video{ width:100%; height:100%; object-fit:cover; }
+  .qr-scanner-frame{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:min(64vw,260px); height:min(64vw,260px); pointer-events:none; }
+  .qr-scanner-frame .qr-corner{ border-color:#fff; opacity:0.9; }
+  .qr-scanner-status{ position:absolute; left:0; right:0; bottom:calc(18px + env(safe-area-inset-bottom)); text-align:center; color:#fff; font-family:'Inter',sans-serif; font-size:13px; padding:0 24px; }
+  .qr-scanner-status.error{ color:#ff8f8f; }
+
   .info-row{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
   .info-value{ flex:1; min-width:0; font-size:13.5px; color:var(--text); background:var(--surface-2); border:1px solid var(--border); padding:9px 11px; border-radius:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .members-list{ display:flex; flex-direction:column; gap:2px; margin-bottom:4px; }
@@ -354,7 +368,7 @@
   .lightbox-close{ position:absolute; top:calc(16px + env(safe-area-inset-top)); right:16px; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.15); color:#fff; border:none; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 
   /* ---------- themed modal (replaces browser confirm/alert popups) ---------- */
-  .modal-backdrop{ position:fixed; inset:0; background:rgba(10,14,20,0.5); display:none; align-items:center; justify-content:center; z-index:120; padding:24px; }
+  .modal-backdrop{ position:fixed; inset:0; background:rgba(10,14,20,0.5); display:none; align-items:center; justify-content:center; z-index:140; padding:24px; }
   .modal-backdrop.active{ display:flex; }
   .modal-card{ background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:22px; width:100%; max-width:340px; box-shadow:0 20px 60px -20px rgba(0,0,0,0.4); transform:scale(0.92) translateY(10px); opacity:0; transition:transform .18s cubic-bezier(.2,.8,.2,1), opacity .18s ease; }
   .modal-backdrop.active .modal-card{ transform:scale(1) translateY(0); opacity:1; }
@@ -369,7 +383,7 @@
   .joinreq-name{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:15px; color:var(--text); }
 
   /* ---------- screen share ---------- */
-  .screenshare-modal{ position:fixed; inset:0; background:#0a0d12; display:none; z-index:130; flex-direction:column; }
+  .screenshare-modal{ position:fixed; inset:0; height:var(--app-height, 100dvh); background:#0a0d12; display:none; z-index:130; flex-direction:column; }
   .screenshare-modal.active{ display:flex; }
   .ss-header{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; padding-top:calc(12px + env(safe-area-inset-top)); background:#12161d; color:#e7e9ec; }
   .ss-header .ss-title{ font-family:'Space Grotesk',sans-serif; font-size:14px; display:flex; align-items:center; gap:8px; }
@@ -391,24 +405,33 @@
      the same "force-landscape" trick games use, instead of just spinning
      a small video in place. */
   .ss-tile.fs-rotated{
-    position:fixed; top:50%; left:50%; width:100vh; height:100vw;
+    position:fixed; top:50%; left:50%;
+    width:var(--app-height, 100dvh); height:100dvw;
     transform:translate(-50%,-50%) rotate(90deg); transform-origin:center;
     z-index:200; border-radius:0; aspect-ratio:auto; background:#000;
   }
   .ss-tile.fs-rotated.rot270{ transform:translate(-50%,-50%) rotate(-90deg); }
   .ss-tile.fs-rotated video{ width:100%; height:100%; max-width:100%; max-height:100%; object-fit:contain; transform:none !important; }
-  .ss-tile.fs-rotated .ss-tile-label{ top:calc(9px + env(safe-area-inset-top)); }
+  .ss-tile.fs-rotated .ss-tile-label{ display:none; }
+  .ss-tile.fs-rotated .ss-tile-controls{ display:none; }
   .ss-fs-exit{ position:absolute; top:9px; right:9px; width:30px; height:30px; border-radius:8px; background:rgba(0,0,0,0.55); border:none; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:2; }
   .ss-fs-exit:hover{ background:rgba(0,0,0,0.75); }
   .ss-rotate-btn{ width:30px; height:30px; border-radius:8px; background:rgba(0,0,0,0.55); border:none; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .ss-rotate-btn:hover{ background:rgba(0,0,0,0.75); }
   .ss-tile.mine{ outline:2px solid rgba(255,255,255,0.25); }
+  /* Fixed-to-viewport controls shown while a tile is fullscreen-rotated —
+     these live outside the rotated tile entirely so they're always
+     upright, always reachable, and never clipped by the browser chrome. */
+  .ss-fs-controls{ position:fixed; top:calc(12px + env(safe-area-inset-top)); right:calc(12px + env(safe-area-inset-right)); z-index:250; display:none; gap:8px; }
+  .ss-fs-controls.active{ display:flex; }
+  .ss-fs-controls button{ width:36px; height:36px; border-radius:9px; background:rgba(0,0,0,0.6); border:none; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .ss-fs-controls button:hover{ background:rgba(0,0,0,0.8); }
 
   /* ---------- sketch board ----------
      Truly full-screen: the canvas fills the entire modal edge-to-edge, and
      the header/toolbar float on top as translucent overlays instead of
      squeezing the drawing area into a smaller boxed-in region. */
-  .sketch-modal{ position:fixed; inset:0; background:#12161d; display:none; z-index:130; }
+  .sketch-modal{ position:fixed; inset:0; height:var(--app-height, 100dvh); background:#12161d; display:none; z-index:130; }
   .sketch-modal.active{ display:block; }
   .sketch-modal .ss-header{ position:absolute; top:0; left:0; right:0; z-index:5; background:linear-gradient(rgba(10,13,18,0.65), rgba(10,13,18,0)); padding-top:calc(12px + env(safe-area-inset-top)); border:none; }
   .sketch-toolbar{ position:absolute; left:0; right:0; bottom:0; z-index:5; display:flex; align-items:center; gap:12px; padding:10px 14px; background:linear-gradient(rgba(10,13,18,0), rgba(10,13,18,0.78) 40%); flex-wrap:wrap; padding-bottom:calc(10px + env(safe-area-inset-bottom)); pointer-events:none; }
@@ -461,7 +484,7 @@
   <div class="brand-row">
     <div class="brand"><span class="dot"></span>CIPHER <b>· private chat</b></div>
     <button class="icon-btn appearance-btn-landing" id="appearanceBtnLanding" title="Appearance">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="8.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 22c-1 0-1.4-1-1-1.8.4-.8 0-1.7-1-1.7H8.5A4.5 4.5 0 014 14a10 10 0 0116-8"/></svg>
+      <i data-lucide="palette" width="15" height="15"></i>
     </button>
   </div>
 
@@ -521,6 +544,7 @@
       </div>
       <p class="error" id="joinError"></p>
       <button class="btn btn-primary" id="joinBtn">Join room</button>
+      <button class="btn btn-ghost" id="joinScanQrBtn" style="margin-top:8px;"><i data-lucide="scan-line" width="16" height="16"></i> Scan QR code</button>
     </div>
 
     <!-- WAITING (host, after create) -->
@@ -550,7 +574,7 @@
   <div class="chat-header">
     <div class="header-left" id="headerInfoBtn" title="Room info">
       <div class="header-avatar">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+        <i data-lucide="lock" width="16" height="16"></i>
       </div>
       <div class="header-titles">
         <div class="room-title" id="roomTitle">Room</div>
@@ -558,17 +582,20 @@
       </div>
     </div>
     <div class="header-right">
+      <div class="icon-btn" id="micBtn" title="Turn on mic (voice chat)">
+        <i data-lucide="mic-off" width="16" height="16"></i>
+      </div>
       <div class="icon-btn" id="sketchBtn" title="Sketch board">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+        <i data-lucide="pen-tool" width="16" height="16"></i>
       </div>
       <div class="icon-btn" id="screenShareBtn" title="Screen share">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+        <i data-lucide="monitor" width="16" height="16"></i>
       </div>
       <div class="icon-btn" id="menuBtn" title="Chat menu">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg>
+        <i data-lucide="more-vertical" width="16" height="16"></i>
       </div>
       <div class="icon-btn leave-btn" id="leaveBtn" title="Leave room">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        <i data-lucide="log-out" width="15" height="15"></i>
       </div>
     </div>
   </div>
@@ -576,12 +603,12 @@
   <div class="messages" id="messages"></div>
   <div class="composer">
     <button class="icon-btn attach-btn" id="attachBtn" title="Send a photo or file">
-      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+      <i data-lucide="paperclip" width="17" height="17"></i>
     </button>
     <input type="file" id="fileInput" multiple style="display:none">
     <input type="text" id="msgInput" placeholder="Type a message…" maxlength="1000">
     <button class="send-btn" id="sendBtn">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      <i data-lucide="send" width="18" height="18"></i>
     </button>
   </div>
 </div>
@@ -667,11 +694,11 @@
   <h3>Message</h3>
   <div class="msg-preview" id="msgActionPreview"></div>
   <button class="sheet-action-btn" id="msgDeleteForMe">
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+    <i data-lucide="trash" width="16" height="16"></i>
     Delete for me
   </button>
   <button class="sheet-action-btn danger" id="msgDeleteForEveryone">
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+    <i data-lucide="trash-2" width="16" height="16"></i>
     Delete for everyone
   </button>
   <button class="btn btn-ghost sheet-done" id="closeMsgActionSheet">Cancel</button>
@@ -698,7 +725,7 @@
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal-card" id="modalCard">
     <div class="modal-icon" id="modalIcon">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+      <i data-lucide="alert-circle" width="20" height="20"></i>
     </div>
     <div class="modal-title" id="modalTitle">Are you sure?</div>
     <p class="modal-body" id="modalBody">This action cannot be undone.</p>
@@ -713,11 +740,18 @@
 <div class="screenshare-modal" id="screenShareModal">
   <div class="ss-header">
     <div class="ss-title"><span class="ss-live-dot" id="ssLiveDot" style="display:none;"></span><span id="ssTitle">Screen share</span></div>
-    <button class="ss-close" id="ssCloseBtn">✕</button>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button class="ss-close" id="ssMicBtn" title="Turn on mic (voice chat)"><i data-lucide="mic-off" width="16" height="16"></i></button>
+      <button class="ss-close" id="ssCloseBtn"><i data-lucide="x" width="16" height="16"></i></button>
+    </div>
   </div>
   <div class="ss-video-wrap">
     <div class="ss-grid" id="ssGrid"></div>
     <div class="ss-empty" id="ssEmpty">No one is sharing their screen yet. Anyone in the room can tap the screen-share icon in the header to start — everyone else sees it live, and several people can share at once.<br><br><span style="opacity:0.7;">This is view-only — for privacy and security, a browser can never let one device remote-control another's mouse, keyboard, or settings. Screen sharing just lets you see and talk someone through it.</span></div>
+  </div>
+  <div class="ss-fs-controls" id="ssFsControls">
+    <button id="ssFsRotateBtn" title="Rotate view"><i data-lucide="rotate-cw" width="16" height="16"></i></button>
+    <button id="ssFsExitBtn" title="Exit full screen"><i data-lucide="x" width="16" height="16"></i></button>
   </div>
 </div>
 
@@ -725,12 +759,12 @@
 <div class="sketch-modal" id="sketchModal">
   <div class="ss-header">
     <div class="ss-title"><span id="sketchTitle">Sketch board</span></div>
-    <button class="ss-close" id="sketchCloseBtn">✕</button>
+    <button class="ss-close" id="sketchCloseBtn"><i data-lucide="x" width="16" height="16"></i></button>
   </div>
   <div class="sketch-rotate-hint hidden" id="sketchRotateHint">
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/></svg>
+    <i data-lucide="rotate-cw" width="15" height="15"></i>
     <span>Rotate your phone for a bigger board</span>
-    <button id="sketchRotateHintClose">✕</button>
+    <button id="sketchRotateHintClose"><i data-lucide="x" width="12" height="12"></i></button>
   </div>
   <div class="sketch-canvas-wrap" id="sketchCanvasWrap">
     <div class="sketch-canvas-inner" id="sketchCanvasInner">
@@ -743,22 +777,25 @@
       <div class="sketch-colors" id="sketchColors"></div>
       <div class="sketch-sep"></div>
       <button class="sketch-tool-btn active" id="sketchPenBtn" title="Pen">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <i data-lucide="pencil" width="16" height="16"></i>
       </button>
       <button class="sketch-tool-btn" id="sketchLineBtn" title="Line">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/></svg>
+        <i data-lucide="minus" width="16" height="16" style="transform:rotate(-45deg);"></i>
       </button>
       <button class="sketch-tool-btn" id="sketchRectBtn" title="Rectangle">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12" rx="1.5"/></svg>
+        <i data-lucide="square" width="16" height="16"></i>
       </button>
       <button class="sketch-tool-btn" id="sketchEllipseBtn" title="Ellipse">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="8" ry="6"/></svg>
+        <i data-lucide="circle" width="16" height="16"></i>
       </button>
       <button class="sketch-tool-btn" id="sketchFillBtn" title="Fill shapes">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l7 7-7 13-7-13 7-7z"/></svg>
+        <i data-lucide="paint-bucket" width="16" height="16"></i>
+      </button>
+      <button class="sketch-tool-btn" id="sketchSelectBtn" title="Select / move / resize">
+        <i data-lucide="move" width="16" height="16"></i>
       </button>
       <button class="sketch-tool-btn" id="sketchEraserBtn" title="Eraser">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H8l-6-6a2 2 0 010-2.8L13.2 2 22 10.8 12.8 20"/><path d="M6.5 12.5L14 20"/></svg>
+        <i data-lucide="eraser" width="16" height="16"></i>
       </button>
     </div>
     <div class="sketch-toolbar-row">
@@ -769,14 +806,44 @@
       <div class="sketch-sep"></div>
       <div class="sketch-colors" id="sketchBgColors" title="Board background"></div>
       <div class="sketch-sep"></div>
+      <button class="sketch-tool-btn" id="sketchScanQrBtn" title="Scan QR code">
+        <i data-lucide="scan-line" width="16" height="16"></i>
+      </button>
       <button class="sketch-tool-btn" id="sketchClearBtn" title="Clear board">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        <i data-lucide="trash-2" width="16" height="16"></i>
       </button>
     </div>
   </div>
 </div>
 
+<!-- In-app QR camera scanner (used from Join tab + sketch board) -->
+<div class="qr-scanner-modal" id="qrScannerModal">
+  <div class="ss-header">
+    <div class="ss-title"><span>Scan a Cipher QR code</span></div>
+    <button class="ss-close" id="qrScannerCloseBtn"><i data-lucide="x" width="16" height="16"></i></button>
+  </div>
+  <div class="qr-scanner-video-wrap">
+    <video id="qrScannerVideo" playsinline muted></video>
+    <div class="qr-scanner-frame">
+      <div class="qr-corner tl"></div><div class="qr-corner tr"></div><div class="qr-corner bl"></div><div class="qr-corner br"></div>
+    </div>
+    <div class="qr-scanner-status" id="qrScannerStatus">Point your camera at a Cipher invite QR code</div>
+  </div>
+  <canvas id="qrScannerCanvas" style="display:none;"></canvas>
+</div>
+
 <script>
+/* ===================== icons (Lucide — a real, proper icon library) =====================
+   Every icon in this app (shapes, toolbar, chat, header) is a real Lucide icon
+   rendered via <i data-lucide="..."></i>. Static markup is picked up on load;
+   anything built dynamically (message bubbles, screen-share tiles, etc.) calls
+   renderIcons() right after it's inserted so its icons get drawn too. */
+function renderIcons(root){
+  if(!window.lucide) return;
+  try{ root ? lucide.createIcons({root}) : lucide.createIcons(); }catch(e){}
+}
+renderIcons();
+
 /* ===================== appearance (per-user, local only) ===================== */
 const THEMES = [
   {id:'ocean',    name:'Ocean',    swatch:'radial-gradient(circle at 35% 35%, #eaf4fb, #2f8fdd)'},
@@ -1115,24 +1182,126 @@ function buildInviteLink(){
   url.hash = 'j=' + encoded;
   return url.toString();
 }
+function applyInvitePayload(payload){
+  if(!(payload && payload.r && payload.k)) return false;
+  document.querySelector('.tab[data-tab="join"]').click();
+  document.getElementById('joinRoom').value = payload.r;
+  document.getElementById('joinCode').value = payload.k;
+  document.getElementById('joinSub').textContent = payload.n
+    ? `You're invited to "${payload.n}" — just enter your name below.`
+    : "You're invited to a room — just enter your name below.";
+  document.getElementById('joinName').focus();
+  return true;
+}
+// Accepts a full invite URL, a bare "#j=..." fragment, or just the raw
+// encoded payload (whatever a scanned QR code happens to contain) and
+// returns the decoded {r,k,n} object, or null if it isn't a Cipher invite.
+function decodeInvitePayloadFromText(text){
+  if(!text) return null;
+  let encoded = text.trim();
+  const hashIdx = encoded.indexOf('#j=');
+  if(hashIdx !== -1) encoded = encoded.slice(hashIdx + 3);
+  try{
+    const payload = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+    return (payload && payload.r && payload.k) ? payload : null;
+  } catch(e){ return null; }
+}
 function parseInviteHash(){
   if(location.hash.indexOf('#j=') !== 0) return;
   try{
-    const encoded = location.hash.slice(3);
-    const payload = JSON.parse(decodeURIComponent(escape(atob(encoded))));
-    if(payload && payload.r && payload.k){
-      document.querySelector('.tab[data-tab="join"]').click();
-      document.getElementById('joinRoom').value = payload.r;
-      document.getElementById('joinCode').value = payload.k;
-      document.getElementById('joinSub').textContent = payload.n
-        ? `You're invited to "${payload.n}" — just enter your name below.`
-        : "You're invited to a room — just enter your name below.";
-      document.getElementById('joinName').focus();
-    }
+    applyInvitePayload(decodeInvitePayloadFromText(location.hash));
   } catch(e){ console.error('Bad invite link', e); }
   history.replaceState(null, '', location.pathname + location.search);
 }
 parseInviteHash();
+
+/* ---------------- in-app QR camera scanner ----------------
+   Used from the Join tab (scan someone's invite QR straight into the
+   room/security code fields) and from inside the sketch board (scan an
+   invite QR you're handed mid-session — e.g. to bring your own second
+   device in, or to grab a link to forward on). */
+let qrScannerStream = null;
+let qrScannerRAF = null;
+function stopQrScanner(){
+  if(qrScannerRAF){ cancelAnimationFrame(qrScannerRAF); qrScannerRAF = null; }
+  if(qrScannerStream){ qrScannerStream.getTracks().forEach(t=>t.stop()); qrScannerStream = null; }
+  document.getElementById('qrScannerModal').classList.remove('active');
+}
+async function openQrScanner(onResult){
+  const modal = document.getElementById('qrScannerModal');
+  const video = document.getElementById('qrScannerVideo');
+  const canvas = document.getElementById('qrScannerCanvas');
+  const status = document.getElementById('qrScannerStatus');
+  status.classList.remove('error');
+  status.textContent = 'Point your camera at a Cipher invite QR code';
+  modal.classList.add('active');
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+    status.classList.add('error');
+    status.textContent = "This browser doesn't support camera access.";
+    return;
+  }
+  try{
+    qrScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  } catch(e){
+    status.classList.add('error');
+    status.textContent = "Couldn't access the camera — check your browser's camera permission for this site.";
+    return;
+  }
+  video.srcObject = qrScannerStream;
+  await video.play().catch(()=>{});
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const tick = ()=>{
+    if(!qrScannerStream) return;
+    if(video.readyState === video.HAVE_ENOUGH_DATA){
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = window.jsQR ? jsQR(img.data, img.width, img.height) : null;
+      if(code && code.data){
+        stopQrScanner();
+        onResult(code.data);
+        return;
+      }
+    }
+    qrScannerRAF = requestAnimationFrame(tick);
+  };
+  qrScannerRAF = requestAnimationFrame(tick);
+}
+document.getElementById('qrScannerCloseBtn').addEventListener('click', stopQrScanner);
+document.getElementById('joinScanQrBtn').addEventListener('click', ()=>{
+  openQrScanner((text)=>{
+    const payload = decodeInvitePayloadFromText(text);
+    if(applyInvitePayload(payload)){
+      showError('joinError','');
+    } else {
+      showError('joinError',"That QR code isn't a Cipher invite code.");
+    }
+  });
+});
+document.getElementById('sketchScanQrBtn').addEventListener('click', ()=>{
+  openQrScanner(async (text)=>{
+    const payload = decodeInvitePayloadFromText(text);
+    if(!payload){
+      addMessage({system:true, text: "Scanned code isn't a Cipher invite — nothing to do with it here."});
+      return;
+    }
+    if(!state.roomCode){
+      applyInvitePayload(payload);
+    } else if(payload.r === state.roomCode){
+      addMessage({system:true, text: "That QR code is an invite to this same room."});
+    } else {
+      try{
+        const url = new URL(location.href);
+        url.hash = 'j=' + btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+        await navigator.clipboard.writeText(url.toString());
+        addMessage({system:true, text: "Scanned an invite to a different room — its link was copied to your clipboard."});
+      } catch(e){
+        addMessage({system:true, text: "Scanned an invite to a different room, but couldn't copy it automatically."});
+      }
+    }
+  });
+});
 
 /* ---------------- chat rendering ---------------- */
 function attachMessageActions(el, isSystem, msgId, mine, preview){
@@ -1339,7 +1508,7 @@ function fileChipHtml(name, dataUrl, sizeLabel){
   // before base64 padding/encoding) over guessing from the data URL length.
   const label = sizeLabel || formatBytes(Math.round(dataUrl.length * 0.75));
   return `<a class="file-chip" href="${dataUrl}" download="${escapeHtml(name)}">
-    <span class="file-chip-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>
+    <span class="file-chip-icon"><i data-lucide="download" width="16" height="16"></i></span>
     <span class="file-chip-meta">
       <span class="file-chip-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
       <span class="file-chip-size">${label}</span>
@@ -1379,6 +1548,7 @@ function addMessage({who, text, mine, system, ts, image, file, id}){
   attachMessageActions(el, system, id, mine, preview);
   box.appendChild(el);
   box.scrollTop = box.scrollHeight;
+  renderIcons(el);
   return el;
 }
 
@@ -1473,12 +1643,10 @@ function addProgressMessage(buf){
   el.innerHTML = `
     ${mine ? '' : `<div class="who">${escapeHtml(buf.name)}</div>`}
     ${mine ? `<button class="progress-cancel-btn" title="Cancel send" type="button">
-      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+      <i data-lucide="x" width="12" height="12"></i>
     </button>` : ''}
     <div class="progress-box">
-      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.55">
-        ${buf.isImage ? '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/>' : '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/>'}
-      </svg>
+      <i data-lucide="${buf.isImage ? 'image' : 'file-text'}" width="26" height="26" style="opacity:0.55;"></i>
     </div>
     <div class="progress-text"><span class="progress-label">${verb} ${buf.isImage ? 'photo' : 'file'}…</span><span class="progress-pct">0%</span></div>
     <div class="progress-bar-track"><div class="progress-bar-fill"></div></div>
@@ -1486,6 +1654,7 @@ function addProgressMessage(buf){
   `;
   box.appendChild(el);
   box.scrollTop = box.scrollHeight;
+  renderIcons(el);
   return el;
 }
 function updateProgressMessage(buf){
@@ -1525,9 +1694,8 @@ function finalizeIncomingFile(buf, dataUrl, msgId){
   }
   attachMessageActions(el, false, msgId, false, preview);
   if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
+  renderIcons(el);
 }
-
-function finalizeSentFile(buf, dataUrl, msgId){
   const el = buf.el;
   const time = buf.ts ? new Date(buf.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
   el.classList.remove('progress-msg');
@@ -1542,6 +1710,7 @@ function finalizeSentFile(buf, dataUrl, msgId){
   }
   attachMessageActions(el, false, msgId, true, preview);
   if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
+  renderIcons(el);
 }
 
 function openLightbox(src){
@@ -2430,10 +2599,11 @@ function createTile(key, name, isMine){
     <div class="ss-tile-label">${escapeHtml(name)}${isMine ? ' <span class="you-tag">(you)</span>' : ''}</div>
     <div class="ss-tile-controls">
       <button class="ss-rotate-btn" title="Rotate view">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/></svg>
+        <i data-lucide="rotate-cw" width="15" height="15"></i>
       </button>
     </div>`;
   grid.appendChild(tile);
+  renderIcons(tile);
   const entry = { video: tile.querySelector('video'), name, isMine, rotation: 0, wrap: tile };
   tile.querySelector('.ss-rotate-btn').addEventListener('click', ()=>{
     entry.rotation = (entry.rotation + 90) % 360;
@@ -2447,26 +2617,34 @@ function removeTile(key){
   if(!entry) return;
   entry.wrap.remove();
   ssTiles.delete(key);
+  if(ssFsEntry === entry){ ssFsEntry = null; updateFsControls(); }
   ssTiles.forEach(scaleTileForViewport);
   updateSsChrome();
 }
 function isPortraitViewport(){
   return window.matchMedia('(orientation: portrait)').matches;
 }
-function ensureFsExitBtn(entry){
-  if(entry.exitBtn) return entry.exitBtn;
-  const btn = document.createElement('button');
-  btn.className = 'ss-fs-exit';
-  btn.title = 'Exit full screen';
-  btn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-  btn.addEventListener('click', ()=>{
-    entry.rotation = 0;
-    applyTileRotation(entry);
-  });
-  entry.wrap.appendChild(btn);
-  entry.exitBtn = btn;
-  return btn;
+// The tile that is currently blown up full-screen-rotated, if any. The
+// rotate/exit controls for it live in a fixed bar OUTSIDE the rotated
+// tile (see #ssFsControls) so they're never carried along by the tile's
+// own rotate transform — that was why they became hard to see/tap and
+// why rotating back to the previous view didn't seem to work.
+let ssFsEntry = null;
+function updateFsControls(){
+  const bar = document.getElementById('ssFsControls');
+  if(!bar) return;
+  bar.classList.toggle('active', !!ssFsEntry);
 }
+document.getElementById('ssFsRotateBtn').addEventListener('click', ()=>{
+  if(!ssFsEntry) return;
+  ssFsEntry.rotation = (ssFsEntry.rotation + 180) % 360; // flip between the two landscape orientations
+  applyTileRotation(ssFsEntry);
+});
+document.getElementById('ssFsExitBtn').addEventListener('click', ()=>{
+  if(!ssFsEntry) return;
+  ssFsEntry.rotation = 0;
+  applyTileRotation(ssFsEntry);
+});
 function applyTileRotation(entry){
   const v = entry.video, wrap = entry.wrap;
   // On a portrait phone, rotating a landscape share 90°/270° should blow
@@ -2478,9 +2656,8 @@ function applyTileRotation(entry){
   if(goFullscreen){
     v.style.transform = 'none';
     v.style.maxWidth = '100%'; v.style.maxHeight = '100%';
-    ensureFsExitBtn(entry).style.display = 'flex';
+    ssFsEntry = entry;
   } else {
-    if(entry.exitBtn) entry.exitBtn.style.display = 'none';
     v.style.transform = `rotate(${entry.rotation}deg)`;
     if(entry.rotation === 90 || entry.rotation === 270){
       const w = wrap.clientWidth, h = wrap.clientHeight;
@@ -2490,7 +2667,9 @@ function applyTileRotation(entry){
       v.style.maxWidth = '100%';
       v.style.maxHeight = '100%';
     }
+    if(ssFsEntry === entry) ssFsEntry = null;
   }
+  updateFsControls();
 }
 function scaleTileForViewport(entry){
   // Re-check on resize/orientation change: e.g. if the phone is physically

@@ -288,6 +288,48 @@
   .conn-banner.active{ display:flex; }
   .conn-banner.retry{ cursor:pointer; color:var(--accent); font-weight:600; }
 
+  /* ---------------- floating voice-chat speaker avatars ---------------- */
+  .voice-avatars-bar{
+    display:none; align-items:center; gap:14px; padding:10px 16px; overflow-x:auto;
+    background:var(--surface-2); border-left:1px solid var(--border); border-right:1px solid var(--border);
+    scrollbar-width:none;
+  }
+  .voice-avatars-bar::-webkit-scrollbar{ display:none; }
+  .voice-avatars-bar.active{ display:flex; }
+  .voice-avatar{ display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0; }
+  .voice-avatar-circle{
+    position:relative; width:42px; height:42px; border-radius:50%;
+    background:var(--accent-soft); color:var(--accent); font-weight:700; font-size:15px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    transition:box-shadow .15s ease, transform .15s ease;
+    box-shadow:0 0 0 2px var(--border);
+  }
+  .voice-avatar-circle .material-symbols-outlined{ font-size:18px; }
+  .voice-avatar-name{ font-size:10.5px; color:var(--muted); max-width:56px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .voice-avatar.muted .voice-avatar-circle{ opacity:.55; }
+  .voice-avatar-circle.speaking{
+    box-shadow:0 0 0 2px var(--online), 0 0 0 5px color-mix(in srgb, var(--online) 30%, transparent);
+    transform:scale(1.08);
+    animation:voiceSpeakPulse 1s ease-in-out infinite;
+  }
+  @keyframes voiceSpeakPulse{
+    0%,100%{ box-shadow:0 0 0 2px var(--online), 0 0 0 5px color-mix(in srgb, var(--online) 30%, transparent); }
+    50%{ box-shadow:0 0 0 2px var(--online), 0 0 0 8px color-mix(in srgb, var(--online) 12%, transparent); }
+  }
+
+  /* ---------------- connecting / retrieving-information overlay ---------------- */
+  .connect-overlay{
+    position:fixed; inset:0; z-index:300; display:none; align-items:center; justify-content:center;
+    background:var(--bg); flex-direction:column; gap:16px;
+  }
+  .connect-overlay.active{ display:flex; }
+  .connect-overlay .connect-spinner{
+    width:38px; height:38px; border-radius:50%; border:3px solid var(--border);
+    border-top-color:var(--accent); animation:connectSpin .8s linear infinite;
+  }
+  .connect-overlay .connect-text{ color:var(--muted); font-size:14px; font-weight:600; letter-spacing:.2px; }
+  @keyframes connectSpin{ to{ transform:rotate(360deg); } }
+
   .chat-body{ flex:1; min-height:0; position:relative; display:flex; flex-direction:column; }
   .messages{ flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; background:var(--bg); border-left:1px solid var(--border); border-right:1px solid var(--border); padding:16px; display:flex; flex-direction:column; gap:10px; }
   .messages::-webkit-scrollbar{ width:6px; }
@@ -587,6 +629,11 @@
 <body>
 <div id="viewportRoot">
 
+<div class="connect-overlay" id="connectOverlay">
+  <div class="connect-spinner"></div>
+  <div class="connect-text" id="connectOverlayText">Retrieving information…</div>
+</div>
+
 <div class="app" id="landingApp">
   <div class="brand-row">
     <div class="brand"><span class="dot"></span>CIPHER <b>· private chat</b></div>
@@ -704,6 +751,7 @@
     </div>
   </div>
   <div class="conn-banner" id="connBanner"></div>
+  <div class="voice-avatars-bar" id="voiceAvatarsBar"></div>
   <div class="chat-body" id="chatBody">
     <div class="messages" id="messages"></div>
   </div>
@@ -1100,7 +1148,7 @@ document.getElementById('applyThemeEveryone').addEventListener('click', ()=>{
   showModal({
     title:'Apply for everyone?',
     body:'This will change the theme, background and font on everyone\u2019s screen in this room right now.',
-    confirmText:'Apply for everyone',
+    confirmText:'Apply',
     cancelText:'Cancel',
     onConfirm: async ()=>{
       const look = { theme:getSavedTheme(), pattern:getSavedPattern(), font:getSavedFont(), by: state.myName };
@@ -1962,6 +2010,14 @@ async function kickMember(connId, name){
   renderMembersList();
 }
 
+function showConnectOverlay(text){
+  document.getElementById('connectOverlayText').textContent = text || 'Retrieving information…';
+  document.getElementById('connectOverlay').classList.add('active');
+}
+function hideConnectOverlay(){
+  document.getElementById('connectOverlay').classList.remove('active');
+}
+
 function enterChatUI(){
   document.getElementById('landingApp').style.display = 'none';
   document.getElementById('chatWrap').classList.add('active');
@@ -2300,6 +2356,7 @@ async function handleIncoming(raw, fromConnId){
 
 function onJoinAccepted(){
   const btn = document.getElementById('joinBtn');
+  hideConnectOverlay();
   if(!document.getElementById('chatWrap').classList.contains('active')){
     enterChatUI();
     addMessage({system:true, text:'You joined the room'});
@@ -2315,6 +2372,7 @@ function onJoinRejected(){
   showError('joinError', 'The host declined your request to join.');
   const btn = document.getElementById('joinBtn');
   btn.disabled = false; btn.textContent = 'Join room';
+  hideConnectOverlay();
   state.leavingIntentionally = true;
   try{ state.peer && state.peer.destroy(); }catch(e){}
 }
@@ -2498,6 +2556,7 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
 
   const btn = document.getElementById('startBtn');
   btn.disabled = true; btn.textContent = 'Creating…';
+  showConnectOverlay('Retrieving information…');
 
   const roomCode = randomCode(6);
   const peerId = 'cipher-' + roomCode.toLowerCase();
@@ -2524,6 +2583,7 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
     document.getElementById('panel-waiting').classList.add('active');
     renderScrambledCode(roomCode);
     btn.disabled = false; btn.textContent = 'Create room';
+    hideConnectOverlay();
     scheduleRoomExpiryCheck();
   });
 
@@ -2570,6 +2630,7 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
     console.error(err);
     showError('startError', 'Could not create room: ' + err.type);
     btn.disabled = false; btn.textContent = 'Create room';
+    hideConnectOverlay();
   });
 });
 
@@ -2585,6 +2646,7 @@ document.getElementById('joinBtn').addEventListener('click', async ()=>{
 
   const btn = document.getElementById('joinBtn');
   btn.disabled = true; btn.textContent = 'Connecting…';
+  showConnectOverlay('Retrieving information…');
 
   state.isHost = false;
   state.myName = name;
@@ -2609,6 +2671,7 @@ document.getElementById('joinBtn').addEventListener('click', async ()=>{
     console.error(err);
     showError('joinError','Could not connect: ' + err.type + '. The room code may be wrong or the host has closed it.');
     btn.disabled = false; btn.textContent = 'Join room';
+    hideConnectOverlay();
   });
 });
 
@@ -2623,6 +2686,7 @@ function connectToHost(isInitial){
       showError('joinError','Could not connect. Check the room code and security code, and make sure the host still has the room open.');
       const btn = document.getElementById('joinBtn');
       btn.disabled = false; btn.textContent = 'Join room';
+      hideConnectOverlay();
       try{ state.peer.destroy(); }catch(e){}
     }, 15000);
   }
@@ -2639,6 +2703,7 @@ function connectToHost(isInitial){
     if(isInitial){
       const btn = document.getElementById('joinBtn');
       btn.textContent = 'Waiting for host to let you in…';
+      showConnectOverlay('Waiting for host to let you in…');
     }
   });
 
@@ -2656,6 +2721,7 @@ function connectToHost(isInitial){
       showError('joinError','Connection error: ' + err);
       const btn = document.getElementById('joinBtn');
       btn.disabled = false; btn.textContent = 'Join room';
+      hideConnectOverlay();
       return;
     }
     if(!state.leavingIntentionally) scheduleReconnect();
@@ -3215,6 +3281,7 @@ async function toggleMic(){
   micOn = true;
   setMicButtonsState(true);
   callAllPeersWithMic();
+  addVoiceAvatar('me', state.myName, stream);
 }
 function stopMic(){
   micOn = false;
@@ -3222,6 +3289,7 @@ function stopMic(){
   if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
   micOutgoingCalls.forEach(call=>{ try{ call.close(); }catch(e){} });
   micOutgoingCalls.clear();
+  removeVoiceAvatar('me');
 }
 function callAllPeersWithMic(){
   if(!micOn || !micStream || !state.peer) return;
@@ -3258,6 +3326,7 @@ function handleIncomingMicCall(call){
     }
     entry.audioEl.srcObject = remoteStream;
     entry.audioEl.play().catch(()=>{});
+    addVoiceAvatar(peerId, name, remoteStream);
   });
   call.on('close', ()=> removeMicIncoming(peerId));
 }
@@ -3266,9 +3335,93 @@ function removeMicIncoming(peerId){
   if(!entry) return;
   try{ entry.audioEl.srcObject = null; entry.audioEl.remove(); }catch(e){}
   micIncoming.delete(peerId);
+  removeVoiceAvatar(peerId);
 }
 document.getElementById('micBtn').addEventListener('click', toggleMic);
 document.getElementById('ssMicBtn').addEventListener('click', toggleMic);
+
+/* ---------------- floating "who's speaking" avatars ----------------
+   Purely a visual layer on top of the mic mesh above: for every live mic
+   stream (my own outgoing one, plus each incoming one) we run a lightweight
+   Web Audio analyser to measure how loud that stream is right now, and
+   flip a "speaking" highlight on/off on that person's floating avatar
+   bubble. A short hangover after the level drops keeps quick pauses in
+   speech from making the highlight flicker. */
+const VOICE_SPEAK_THRESHOLD = 0.045;
+const VOICE_SPEAK_HANGOVER_MS = 350;
+let voiceMonitors = new Map(); // key ('me' or peerId) -> {ctx, analyser, source, dataArray, speaking, lastAbove}
+let voiceAvatarRAF = null;
+
+function initialsFor(name){
+  return ((name || '').trim().slice(0,1).toUpperCase()) || '?';
+}
+
+function addVoiceAvatar(key, name, stream){
+  const bar = document.getElementById('voiceAvatarsBar');
+  if(!document.getElementById('voiceAvatar-' + key)){
+    const wrap = document.createElement('div');
+    wrap.className = 'voice-avatar';
+    wrap.id = 'voiceAvatar-' + key;
+    wrap.innerHTML = `<div class="voice-avatar-circle" id="voiceAvatarCircle-${key}">${escapeHtml(initialsFor(name))}</div><div class="voice-avatar-name">${escapeHtml(key==='me' ? 'You' : name)}</div>`;
+    bar.appendChild(wrap);
+  }
+  bar.classList.add('active');
+  startVoiceMonitor(key, stream);
+}
+function removeVoiceAvatar(key){
+  const el = document.getElementById('voiceAvatar-' + key);
+  if(el) el.remove();
+  stopVoiceMonitor(key);
+  const bar = document.getElementById('voiceAvatarsBar');
+  if(!bar.children.length) bar.classList.remove('active');
+}
+function startVoiceMonitor(key, stream){
+  stopVoiceMonitor(key);
+  if(!(window.AudioContext || window.webkitAudioContext)) return;
+  let ctx, source, analyser;
+  try{
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    source = ctx.createMediaStreamSource(stream);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.6;
+    source.connect(analyser);
+  } catch(e){ return; }
+  voiceMonitors.set(key, { ctx, source, analyser, dataArray: new Uint8Array(analyser.fftSize), speaking:false, lastAbove:0 });
+  if(!voiceAvatarRAF) voiceAvatarRAF = requestAnimationFrame(voiceLevelLoop);
+}
+function stopVoiceMonitor(key){
+  const m = voiceMonitors.get(key);
+  if(!m) return;
+  try{ m.source.disconnect(); }catch(e){}
+  try{ m.ctx.close(); }catch(e){}
+  voiceMonitors.delete(key);
+  if(!voiceMonitors.size && voiceAvatarRAF){ cancelAnimationFrame(voiceAvatarRAF); voiceAvatarRAF = null; }
+}
+function voiceStreamLevel(m){
+  m.analyser.getByteTimeDomainData(m.dataArray);
+  let sumSquares = 0;
+  for(let i=0;i<m.dataArray.length;i++){
+    const v = (m.dataArray[i] - 128) / 128;
+    sumSquares += v*v;
+  }
+  return Math.sqrt(sumSquares / m.dataArray.length);
+}
+function voiceLevelLoop(){
+  const now = performance.now();
+  voiceMonitors.forEach((m, key)=>{
+    const level = voiceStreamLevel(m);
+    const circle = document.getElementById('voiceAvatarCircle-' + key);
+    if(level > VOICE_SPEAK_THRESHOLD){
+      m.lastAbove = now;
+      if(!m.speaking && circle){ m.speaking = true; circle.classList.add('speaking'); }
+    } else if(m.speaking && (now - m.lastAbove) > VOICE_SPEAK_HANGOVER_MS){
+      m.speaking = false;
+      if(circle) circle.classList.remove('speaking');
+    }
+  });
+  voiceAvatarRAF = requestAnimationFrame(voiceLevelLoop);
+}
 
 /* ==================== live sketch board ====================
    Everyone's strokes are kept in a shared, ever-growing list of stroke

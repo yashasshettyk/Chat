@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Cipher — private chat</title>
+<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/yashasshettyk/Chat/main/logo.png">
+<meta property="og:title" content="Cipher — private chat">
+<meta property="og:description" content="A private, end-to-end encrypted chat room.">
+<meta property="og:image" content="https://raw.githubusercontent.com/yashasshettyk/Chat/main/thumbnail.png">
+<meta property="og:image:width" content="1536">
+<meta property="og:image:height" content="1024">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cipher — private chat">
+<meta name="twitter:description" content="A private, end-to-end encrypted chat room.">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/yashasshettyk/Chat/main/thumbnail.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -189,7 +200,7 @@
   .inline-btn:hover{ color:var(--text); border-color:var(--accent); }
   .inline-btn.full-btn{ width:100%; text-align:left; height:auto; padding:11px 13px; margin-bottom:8px; display:block; }
 
-  .btn{ width:100%; padding:14px 0; border-radius:12px; border:none; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14.5px; cursor:pointer; transition:transform .12s ease, opacity .12s ease; }
+  .btn{ width:100%; padding:14px 18px; border-radius:12px; border:none; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14.5px; cursor:pointer; transition:transform .12s ease, opacity .12s ease; }
   .btn svg, .inline-btn svg{ vertical-align:-3px; margin-right:6px; }
   .btn-primary{ background:var(--accent); color:var(--on-accent); }
   .btn-primary:hover{ opacity:0.92; }
@@ -416,7 +427,7 @@
   .appearance-card-name{ position:relative; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:15.5px; }
   .appearance-card-sub{ position:relative; font-size:11.5px; color:var(--muted); }
   .appearance-apply-row{ display:flex; gap:10px; margin-top:18px; }
-  .appearance-apply-row .btn{ flex:1; margin-top:0; }
+  .appearance-apply-row .btn{ flex:1; margin-top:0; padding-left:10px; padding-right:10px; }
   body:not(.chat-mode) #applyThemeEveryone{ display:none; }
   .sheet-action-btn{ width:100%; text-align:left; padding:13px 14px; border-radius:11px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:'Inter',sans-serif; font-size:14px; cursor:pointer; margin-bottom:9px; display:flex; align-items:center; gap:10px; }
   .sheet-action-btn:hover{ border-color:var(--accent); }
@@ -3268,13 +3279,16 @@ async function toggleMic(){
   callAllPeersWithMic();
   myLevelMeterStop = startLevelMeter(micStream, (lvl)=> setCaptionRowLevel(state.myName, lvl));
   // Captions are a visible-by-default side effect of talking — no separate
-  // toggle to hunt for — but only on desktop. On mobile, speech recognition
-  // repeatedly stops/restarts itself in the background, which cycles the
-  // device mic indicator and looks like the mic randomly turning on and off,
-  // even though the actual call audio stays connected the whole time. If
-  // this browser can't do speech recognition, startCaptions() just quietly
+  // toggle to hunt for. On mobile, speech recognition repeatedly
+  // stops/restarts itself in the background, which can cycle the device
+  // mic indicator and look like the mic randomly turning on and off, even
+  // though the actual call audio stays connected the whole time — but
+  // skipping captions entirely on mobile meant a mobile speaker's captions
+  // never reached anyone else, so we start it there too and rely on the
+  // restart backoff above to keep the flicker to a minimum. If this
+  // browser can't do speech recognition, startCaptions() just quietly
   // no-ops anyway.
-  if(!isMobileDevice()) startCaptions();
+  startCaptions();
 }
 function stopMic(){
   micOn = false;

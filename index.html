@@ -242,8 +242,6 @@
   .icon-btn:hover{ color:var(--accent); border-color:var(--accent); }
   .icon-btn.leave-btn:hover{ color:var(--danger); border-color:var(--danger); }
   .icon-btn.mic-on{ color:var(--online); border-color:var(--online); }
-  .icon-btn-share{ width:46px; height:46px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border); color:var(--muted); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
-  .icon-btn-share:hover{ color:var(--accent); border-color:var(--accent); }
 
   /* ---------- swipe-to-reply ---------- */
   .msg{ touch-action:pan-y; }
@@ -696,11 +694,8 @@
           <button class="inline-btn" id="copyCode">Copy security code</button>
         </div>
       </div>
-      <div class="row">
-        <button class="btn btn-primary" id="copyInviteLinkWaiting" style="flex:1;">Copy invite link</button>
-        <button class="icon-btn-share" id="shareInviteLinkWaiting" title="Share invite link"><span class="material-symbols-outlined" style="font-size:20px;">share</span></button>
-        <button class="btn btn-ghost" id="showQrWaiting" style="flex:1; margin-top:0;">Show QR code</button>
-      </div>
+      <button class="btn btn-primary" id="shareInviteLinkWaiting"><span class="material-symbols-outlined" style="font-size:18px; vertical-align:-4px; margin-right:5px;">share</span>Share invite link</button>
+      <button class="btn btn-ghost" id="showQrWaiting">Show QR code</button>
       <p class="hint">Anyone who opens that link, or scans the QR code, just types their name — no codes to enter.</p>
       <div class="status-line"><span class="spinner"></span> waiting for people to join…</div>
     </div>
@@ -818,11 +813,8 @@
     <button class="inline-btn" id="copyMenuSecCode">Copy</button>
   </div>
 
-  <div class="row" style="margin-top:14px;">
-    <button class="btn btn-primary" id="copyInviteLink" style="flex:1;">Copy invite link</button>
-    <button class="icon-btn-share" id="shareInviteLinkMenu" title="Share invite link"><span class="material-symbols-outlined" style="font-size:20px;">share</span></button>
-    <button class="btn btn-ghost" id="showQrMenu" style="flex:1; margin-top:0;">Show QR code</button>
-  </div>
+  <button class="btn btn-primary" id="shareInviteLinkMenu" style="margin-top:14px;"><span class="material-symbols-outlined" style="font-size:18px; vertical-align:-4px; margin-right:5px;">share</span>Share invite link</button>
+  <button class="btn btn-ghost" id="showQrMenu">Show QR code</button>
   <p class="hint">Anyone with this link, or who scans the QR code, can enter their name and join instantly.</p>
 
   <div class="swatch-label">In this room</div>
@@ -2011,8 +2003,6 @@ document.getElementById('headerInfoBtn').addEventListener('click', ()=> document
 /* copy helpers */
 document.getElementById('copyRoom').addEventListener('click', ()=>{ navigator.clipboard.writeText(state.roomCode); toastBtn('copyRoom','Copied!'); });
 document.getElementById('copyCode').addEventListener('click', ()=>{ navigator.clipboard.writeText(document.getElementById('startCode').value); toastBtn('copyCode','Copied!'); });
-document.getElementById('copyInviteLinkWaiting').addEventListener('click', ()=>{ navigator.clipboard.writeText(buildInviteLink()); toastBtn('copyInviteLinkWaiting','Link copied!'); });
-document.getElementById('copyInviteLink').addEventListener('click', ()=>{ navigator.clipboard.writeText(buildInviteLink()); toastBtn('copyInviteLink','Link copied!'); });
 /* ---------------- share invite link (native share sheet, with copy fallback) ----------------
    navigator.share opens the OS share sheet (WhatsApp, Messages, Mail, etc.) — supported on
    most mobile browsers and some desktop browsers (e.g. Safari, newer Chrome/Edge). Where it's

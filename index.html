@@ -188,6 +188,11 @@
   .inline-btn{ background:var(--surface-2); border:1px solid var(--border); color:var(--muted); border-radius:9px; padding:0 14px; height:38px; font-size:12.5px; cursor:pointer; white-space:nowrap; font-family:'Space Grotesk',sans-serif; font-weight:500; flex-shrink:0; }
   .inline-btn:hover{ color:var(--text); border-color:var(--accent); }
   .inline-btn.full-btn{ width:100%; text-align:left; height:auto; padding:11px 13px; margin-bottom:8px; display:block; }
+  .inline-btn.toggle-btn{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .inline-btn.toggle-btn .menu-toggle-left{ display:flex; align-items:center; gap:9px; }
+  .inline-btn.toggle-btn .menu-toggle-state{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); }
+  .inline-btn.toggle-btn.captions-on .menu-toggle-state{ color:var(--online); }
+  .inline-btn.toggle-btn.captions-on{ color:var(--online); border-color:var(--online); }
 
   .btn{ width:100%; padding:14px 0; border-radius:12px; border:none; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14.5px; cursor:pointer; transition:transform .12s ease, opacity .12s ease; }
   .btn svg, .inline-btn svg{ vertical-align:-3px; margin-right:6px; }
@@ -232,8 +237,11 @@
   .icon-btn.mic-on{ color:var(--online); border-color:var(--online); }
   .icon-btn.captions-on{ color:var(--online); border-color:var(--online); }
 
-  /* ---------- floating live captions (glassmorphism) ---------- */
-  .caption-bar{ position:absolute; left:12px; right:12px; bottom:14px; z-index:5; display:flex; flex-direction:column; gap:8px; align-items:flex-start; pointer-events:none; }
+  /* ---------- floating live captions (glassmorphism) ----------
+     Lives inside .chat-body (which sits right below .chat-header), so
+     anchoring to its top places the captions just under the header rather
+     than hovering over the composer. */
+  .caption-bar{ position:absolute; left:12px; right:12px; top:12px; z-index:5; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; }
   .caption-bar:empty{ display:none; }
   .caption-row{
     position:relative; max-width:88%; padding:10px 16px 10px 14px; border-radius:18px;
@@ -426,6 +434,10 @@
   .ss-header .ss-title{ font-family:'Space Grotesk',sans-serif; font-size:14px; display:flex; align-items:center; gap:8px; }
   .ss-live-dot{ width:8px; height:8px; border-radius:50%; background:#e0575c; animation:pulse 1.4s ease-in-out infinite; }
   .ss-close{ background:rgba(255,255,255,0.1); border:none; color:#fff; width:34px; height:34px; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .ss-close.qr-lens-btn{ width:auto; min-width:34px; padding:0 10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; letter-spacing:0.01em; }
+  .qr-focus-ring{ position:absolute; width:64px; height:64px; border:2px solid #fff; border-radius:50%; pointer-events:none; opacity:0; transform:translate(-50%,-50%) scale(1.3); box-shadow:0 0 10px rgba(0,0,0,0.5); }
+  .qr-focus-ring.pulse{ animation:qrFocusPulse .55s ease-out; }
+  @keyframes qrFocusPulse{ 0%{ opacity:1; transform:translate(-50%,-50%) scale(1.3); } 100%{ opacity:0; transform:translate(-50%,-50%) scale(1); } }
   .ss-close.active{ background:var(--accent); color:var(--on-accent); }
   .ss-close.mic-on{ background:var(--online); color:#0a0d12; }
   .ss-close.captions-on{ background:var(--online); color:#0a0d12; }
@@ -650,9 +662,6 @@
       <div class="icon-btn" id="micBtn" title="Turn on mic (voice chat)">
         <span class="material-symbols-outlined" style="font-size:16px;">mic_off</span>
       </div>
-      <div class="icon-btn" id="captionsBtn" title="Turn on captions (speech-to-text)">
-        <span class="material-symbols-outlined" style="font-size:16px;">closed_caption_off</span>
-      </div>
       <div class="icon-btn" id="sketchBtn" title="Sketch board">
         <span class="material-symbols-outlined" style="font-size:16px;">draw</span>
       </div>
@@ -737,6 +746,10 @@
   <div id="membersList" class="members-list"></div>
 
   <div class="swatch-label">Options</div>
+  <button class="inline-btn full-btn toggle-btn" id="captionsBtn" title="Turn on captions (speech-to-text)">
+    <span class="menu-toggle-left"><span class="material-symbols-outlined" style="font-size:16px;">closed_caption_off</span>Live captions</span>
+    <span class="menu-toggle-state">Off</span>
+  </button>
   <button class="inline-btn full-btn" id="openAppearanceFromMenu">🎨 Appearance</button>
   <button class="inline-btn full-btn" id="clearChatBtn">🧹 Clear chat for me</button>
 
@@ -893,12 +906,13 @@
   <div class="ss-header">
     <div class="ss-title"><span>Scan a Cipher QR code</span></div>
     <div style="display:flex; align-items:center; gap:8px;">
-      <button class="ss-close" id="qrLensBtn" title="Switch camera lens" style="display:none;"><span class="material-symbols-outlined" style="font-size:16px;">cameraswitch</span></button>
+      <button class="ss-close qr-lens-btn" id="qrLensBtn" title="Switch lens" style="display:none;"><span id="qrLensLabel">1x</span></button>
       <button class="ss-close" id="qrScannerCloseBtn"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
     </div>
   </div>
-  <div class="qr-scanner-video-wrap">
+  <div class="qr-scanner-video-wrap" id="qrScannerVideoWrap">
     <video id="qrScannerVideo" playsinline muted></video>
+    <div class="qr-focus-ring" id="qrFocusRing"></div>
     <div class="qr-scanner-frame">
       <div class="qr-corner tl"></div><div class="qr-corner tr"></div><div class="qr-corner bl"></div><div class="qr-corner br"></div>
     </div>
@@ -1298,6 +1312,7 @@ let qrCameraDevices = [];   // rear-facing videoinput devices, populated once we
                              // until then, so this list can only be built after
                              // the first getUserMedia call succeeds)
 let qrCameraIndex = 0;
+let qrNoResultFrames = 0;
 function isLikelyRearCamera(label){
   const l = (label || '').toLowerCase();
   if(!l) return true; // unlabeled — don't assume it's the front camera
@@ -1317,28 +1332,84 @@ async function refreshQrCameraDevices(activeDeviceId){
     qrCameraDevices = rear;
   } catch(e){ qrCameraDevices = []; }
 }
-async function pinStreamZoomTo1x(stream){
+// Guesses a human "1x / 0.5x / 2x" style label for whichever lens is
+// currently active — this button switches between a phone's rear lenses
+// (e.g. ultra-wide vs main), never to the front camera, so it should read
+// like a zoom level rather than show a front/back "switch camera" icon.
+function guessLensLabel(track, deviceIndex){
+  try{
+    const caps = track && track.getCapabilities ? track.getCapabilities() : null;
+    if(caps && caps.zoom && typeof caps.zoom.min === 'number'){
+      if(caps.zoom.min <= 0.6) return '0.5x';
+      if(caps.zoom.min >= 1.8) return '2x';
+      return '1x';
+    }
+  } catch(e){}
+  const label = (track && track.label || '').toLowerCase();
+  if(label.includes('ultra') || label.includes('0.5')) return '0.5x';
+  if(label.includes('tele') || label.includes('2x') || label.includes('zoom')) return '2x';
+  // No usable capability/label info — fall back to a stable per-device guess
+  // (first rear lens found is almost always the main 1x one).
+  return deviceIndex === 0 ? '1x' : '0.5x';
+}
+function updateQrLensLabel(track){
+  const label = document.getElementById('qrLensLabel');
+  if(label) label.textContent = guessLensLabel(track, qrCameraIndex);
+}
+async function applyQrTrackTuning(stream){
   try{
     const track = stream.getVideoTracks()[0];
     const caps = track && track.getCapabilities ? track.getCapabilities() : null;
+    if(!(caps && track.applyConstraints)) return;
+    const advanced = [];
     // Where the device reports a zoom range (values below 1 are usually the
     // ultra-wide lens), explicitly pin it to 1x instead of whatever the
     // browser picked as its "default".
-    if(caps && caps.zoom && track.applyConstraints){
-      const targetZoom = Math.min(Math.max(1, caps.zoom.min), caps.zoom.max);
-      await track.applyConstraints({ advanced: [{ zoom: targetZoom }] }).catch(()=>{});
+    if(caps.zoom) advanced.push({ zoom: Math.min(Math.max(1, caps.zoom.min), caps.zoom.max) });
+    // Continuous autofocus is what actually lets the camera lock onto a QR
+    // code held at close range — without it some phones default to a fixed
+    // far-field focus and the scanner never manages to read anything, which
+    // looks exactly like "nothing happens" when scanning.
+    if(caps.focusMode && caps.focusMode.includes('continuous')) advanced.push({ focusMode: 'continuous' });
+    if(advanced.length) await track.applyConstraints({ advanced }).catch(()=>{});
+  } catch(e){}
+}
+// Nudges the camera to refocus on tap — full manual point-of-interest focus
+// isn't reliably exposed on the web, so this briefly drops out of continuous
+// focus and back in, which makes most phone cameras actively re-hunt for
+// focus rather than sit on a stale lock. Always shows the tap ring so there's
+// visible feedback either way.
+async function nudgeQrFocus(x, y){
+  const ring = document.getElementById('qrFocusRing');
+  if(ring){
+    ring.style.left = x + 'px';
+    ring.style.top = y + 'px';
+    ring.classList.remove('pulse');
+    void ring.offsetWidth; // restart the animation
+    ring.classList.add('pulse');
+  }
+  if(!qrScannerStream) return;
+  try{
+    const track = qrScannerStream.getVideoTracks()[0];
+    const caps = track && track.getCapabilities ? track.getCapabilities() : null;
+    if(!(caps && caps.focusMode && track.applyConstraints)) return;
+    if(caps.focusMode.includes('single-shot')){
+      await track.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] }).catch(()=>{});
+    }
+    if(caps.focusMode.includes('continuous')){
+      setTimeout(()=>{ track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(()=>{}); }, 250);
     }
   } catch(e){}
 }
 async function getQrStream(deviceId){
   const primary = deviceId
-    ? { video: { deviceId: { exact: deviceId }, zoom: 1 } }
-    : { video: { facingMode: 'environment', zoom: 1 } };
+    ? { video: { deviceId: { exact: deviceId }, zoom: 1, focusMode: 'continuous' } }
+    : { video: { facingMode: 'environment', zoom: 1, focusMode: 'continuous' } };
   try{
     return await navigator.mediaDevices.getUserMedia(primary);
   } catch(e){
-    // Some browsers reject an unsupported 'zoom' constraint outright —
-    // retry once without it before giving up.
+    // Some browsers reject an unsupported 'zoom'/'focusMode' constraint
+    // outright — retry once without them before giving up.
     const fallback = deviceId
       ? { video: { deviceId: { exact: deviceId } } }
       : { video: { facingMode: 'environment' } };
@@ -1370,6 +1441,7 @@ async function openQrScanner(onResult){
   }
   qrCameraDevices = [];
   qrCameraIndex = 0;
+  qrNoResultFrames = 0;
   try{
     qrScannerStream = await getQrStream();
   } catch(e){
@@ -1377,11 +1449,14 @@ async function openQrScanner(onResult){
     status.textContent = "Couldn't access the camera — check your browser's camera permission for this site.";
     return;
   }
-  await pinStreamZoomTo1x(qrScannerStream);
+  await applyQrTrackTuning(qrScannerStream);
   const activeTrack = qrScannerStream.getVideoTracks()[0];
   const activeDeviceId = activeTrack && activeTrack.getSettings ? activeTrack.getSettings().deviceId : null;
   await refreshQrCameraDevices(activeDeviceId);
   updateQrLensBtnVisibility();
+  updateQrLensLabel(activeTrack);
+  video.muted = true;
+  video.playsInline = true;
   video.srcObject = qrScannerStream;
   await video.play().catch(()=>{});
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -1392,16 +1467,35 @@ async function openQrScanner(onResult){
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = window.jsQR ? jsQR(img.data, img.width, img.height) : null;
+      // attemptBoth checks both normal and color-inverted QR codes (dark
+      // background invites), which the default option can otherwise miss.
+      const code = window.jsQR ? jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' }) : null;
       if(code && code.data){
         stopQrScanner();
         onResult(code.data);
         return;
       }
+      // If it's been scanning for a while with no luck, the most common
+      // real-world cause is the camera not focusing at close range — give
+      // it a nudge automatically rather than leaving it stuck forever.
+      qrNoResultFrames++;
+      if(qrNoResultFrames === 240) refocusQrSilently();
     }
     qrScannerRAF = requestAnimationFrame(tick);
   };
   qrScannerRAF = requestAnimationFrame(tick);
+}
+function refocusQrSilently(){
+  if(!qrScannerStream) return;
+  const track = qrScannerStream.getVideoTracks()[0];
+  const caps = track && track.getCapabilities ? track.getCapabilities() : null;
+  if(!(caps && caps.focusMode && track.applyConstraints)) return;
+  if(caps.focusMode.includes('single-shot')){
+    track.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] }).catch(()=>{});
+    if(caps.focusMode.includes('continuous')){
+      setTimeout(()=>{ track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(()=>{}); }, 250);
+    }
+  }
 }
 async function switchQrLens(){
   if(qrCameraDevices.length < 2) return;
@@ -1417,16 +1511,25 @@ async function switchQrLens(){
     status.textContent = "Couldn't switch cameras.";
     return;
   }
-  await pinStreamZoomTo1x(newStream);
+  await applyQrTrackTuning(newStream);
   qrScannerStream = newStream;
+  qrNoResultFrames = 0;
   const video = document.getElementById('qrScannerVideo');
   video.srcObject = qrScannerStream;
   await video.play().catch(()=>{});
+  updateQrLensLabel(newStream.getVideoTracks()[0]);
   status.classList.remove('error');
   status.textContent = 'Point your camera at a Cipher invite QR code';
 }
 document.getElementById('qrScannerCloseBtn').addEventListener('click', stopQrScanner);
 document.getElementById('qrLensBtn').addEventListener('click', switchQrLens);
+document.getElementById('qrScannerVideoWrap').addEventListener('pointerdown', (e)=>{
+  // Ignore taps that land on the header buttons layered above the video.
+  if(e.target.closest('.ss-close')) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  qrNoResultFrames = 0;
+  nudgeQrFocus(e.clientX - rect.left, e.clientY - rect.top);
+});
 document.getElementById('joinScanQrBtn').addEventListener('click', ()=>{
   openQrScanner((text)=>{
     const payload = decodeInvitePayloadFromText(text);
@@ -2526,7 +2629,20 @@ async function sendMessage(){
   const payload = await encryptObj(state.key, {type:'chat', name: state.myName, text, ts, id});
   sendPayloadToPeers(payload);
 }
-document.getElementById('sendBtn').addEventListener('click', sendMessage);
+/* Tapping the send button normally blurs the text input first (the browser's
+   default "focus whatever was pointed at" behavior fires on pointerdown,
+   before the click handler ever runs), which is what closes the mobile
+   keyboard on every send. Blocking the default on pointerdown keeps focus on
+   msgInput the whole time, the same way WhatsApp's composer behaves. */
+document.getElementById('sendBtn').addEventListener('pointerdown', (e)=>{ e.preventDefault(); });
+document.getElementById('sendBtn').addEventListener('click', ()=>{
+  sendMessage();
+  // Belt-and-suspenders: if focus slipped away anyway (e.g. a browser that
+  // ignores the preventDefault above), pull it straight back so the
+  // keyboard stays open for the next message.
+  const input = document.getElementById('msgInput');
+  if(document.activeElement !== input) input.focus({preventScroll:true});
+});
 document.getElementById('msgInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendMessage(); });
 
 /* ---------------- sending photos & files (chunked, so large ones actually arrive) ---------------- */
@@ -3032,7 +3148,9 @@ let captionsOn = false;
 let captionRecognition = null;
 let captionRecognitionId = 0;   // bumped on every stop, so stale restart timers no-op
 let captionRestartTimer = null;
-let captionEls = new Map(); // name -> {mainEl, ssEl, timeout}
+let captionStartedAt = 0;
+let captionFastFailStreak = 0;  // consecutive restarts that happened almost instantly — a real
+                                 // problem (mic busy/conflicting), not the normal silence timeout
 
 function canUseCaptions(){
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -3044,6 +3162,8 @@ function setCaptionButtonsState(on){
     btn.title = on ? 'Turn off captions' : 'Turn on captions (speech-to-text)';
     const icon = btn.querySelector('.material-symbols-outlined');
     if(icon) icon.textContent = on ? 'closed_caption' : 'closed_caption_off';
+    const label = btn.querySelector('.menu-toggle-state');
+    if(label) label.textContent = on ? 'On' : 'Off';
   });
   renderIcons();
 }
@@ -3072,18 +3192,37 @@ function startCaptionRecognition(){
     if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
       addMessage({system:true, text:'Microphone access was blocked. Allow mic access in your browser settings to use captions.'});
       stopCaptions();
+    } else if(e.error === 'audio-capture'){
+      // mic is busy/unavailable at the OS level — retrying will just keep
+      // flicking it open and shut, so stop outright instead of looping.
+      addMessage({system:true, text:'Captions stopped — the microphone seems to be in use or unavailable.'});
+      stopCaptions();
     }
     // other errors (e.g. 'no-speech') are routine — onend below restarts it
   };
   rec.onend = ()=>{
     if(myId !== captionRecognitionId || !captionsOn) return;
+    // Mobile browsers normally end a session after a few seconds of quiet,
+    // which is fine and expected. But if a session ends almost immediately
+    // after starting, over and over, that's not silence — it's something
+    // failing to actually open the mic each time (e.g. it's already in use),
+    // and retrying instantly just means the mic indicator keeps flickering
+    // open/closed. Detect that pattern and back off instead of looping.
+    const aliveMs = Date.now() - captionStartedAt;
+    captionFastFailStreak = aliveMs < 1000 ? captionFastFailStreak + 1 : 0;
+    if(captionFastFailStreak >= 4){
+      addMessage({system:true, text:"Captions stopped — the microphone keeps failing to start. Try turning voice chat off first, or check that no other app has the mic."});
+      stopCaptions();
+      return;
+    }
     clearTimeout(captionRestartTimer);
+    const delay = captionFastFailStreak > 0 ? 800 * captionFastFailStreak : 300;
     captionRestartTimer = setTimeout(()=>{
       if(myId !== captionRecognitionId || !captionsOn) return;
       startCaptionRecognition();
-    }, 300);
+    }, delay);
   };
-  try{ rec.start(); }
+  try{ rec.start(); captionStartedAt = Date.now(); }
   catch(e){ /* a start-while-stopping race — the pending restart timer above will retry */ return; }
   captionRecognition = rec;
 }
@@ -3095,12 +3234,18 @@ function toggleCaptions(){
   }
   captionsOn = true;
   captionRecognitionId++;
+  captionFastFailStreak = 0;
   setCaptionButtonsState(true);
   startCaptionRecognition();
+  // Captions only work if people can actually be heard too, so switching
+  // captions on brings voice chat along with it (this only turns the mic
+  // ON — turning captions off later leaves your mic choice alone).
+  if(!micOn) toggleMic();
 }
 function stopCaptions(){
   captionsOn = false;
   captionRecognitionId++; // invalidates any in-flight restart timer or stale callback
+  captionFastFailStreak = 0;
   clearTimeout(captionRestartTimer);
   setCaptionButtonsState(false);
   if(captionRecognition){
@@ -3114,36 +3259,28 @@ async function sendCaptionPayload(text, final){
   const payload = await encryptObj(state.key, {type:'caption', name: state.myName, text, final});
   sendPayloadToPeers(payload);
 }
+/* Captions render as a short scrolling history (up to CAPTION_HISTORY_MAX
+   lines) rather than a single row per speaker that just gets overwritten —
+   so a back-and-forth conversation stays readable for a few lines instead
+   of only ever showing the latest speaker. While someone is mid-sentence
+   (not yet final) their line updates in place; once it's final it joins the
+   fixed history and the next thing they say starts a new line. */
+const CAPTION_HISTORY_MAX = 5;
+let captionQueue = [];               // ordered oldest -> newest: {id, mainEl, ssEl, timeout}
+let captionActiveBySpeaker = new Map(); // name -> id of their current in-progress (non-final) line
+let captionSeq = 0;
 function makeCaptionRow(){
   const row = document.createElement('div');
   row.className = 'caption-row';
   row.innerHTML = `<span class="caption-name"></span><span class="caption-text"></span>`;
   return row;
 }
-function renderCaption(name, text, final){
-  if(!name || !text) return;
-  let entry = captionEls.get(name);
-  if(!entry){
-    entry = { mainEl: makeCaptionRow(), ssEl: makeCaptionRow(), timeout: null };
-    captionEls.set(name, entry);
-    const mainBar = document.getElementById('captionBar');
-    const ssBar = document.getElementById('ssCaptionBar');
-    if(mainBar) mainBar.appendChild(entry.mainEl);
-    if(ssBar) ssBar.appendChild(entry.ssEl);
-  }
-  const label = (name === state.myName ? 'You' : name) + ':';
-  [entry.mainEl, entry.ssEl].forEach(el=>{
-    el.querySelector('.caption-name').textContent = label;
-    el.querySelector('.caption-text').textContent = text;
-  });
-  clearTimeout(entry.timeout);
-  if(final){ entry.timeout = setTimeout(()=> clearCaption(name), 4000); }
-}
-function clearCaption(name){
-  const entry = captionEls.get(name);
+function removeCaptionEntry(entry, immediate){
   if(!entry) return;
   clearTimeout(entry.timeout);
-  captionEls.delete(name);
+  const idx = captionQueue.indexOf(entry);
+  if(idx !== -1) captionQueue.splice(idx, 1);
+  captionActiveBySpeaker.forEach((id, name)=>{ if(id === entry.id) captionActiveBySpeaker.delete(name); });
   [entry.mainEl, entry.ssEl].forEach(el=>{
     if(!el) return;
     el.style.animation = 'none';
@@ -3152,7 +3289,41 @@ function clearCaption(name){
   setTimeout(()=>{
     entry.mainEl.remove();
     entry.ssEl.remove();
-  }, 260);
+  }, immediate ? 0 : 260);
+}
+function renderCaption(name, text, final){
+  if(!name || !text) return;
+  const activeId = captionActiveBySpeaker.get(name);
+  let entry = activeId ? captionQueue.find(e=> e.id === activeId) : null;
+  if(!entry){
+    entry = { id: ++captionSeq, mainEl: makeCaptionRow(), ssEl: makeCaptionRow(), timeout: null };
+    captionQueue.push(entry);
+    captionActiveBySpeaker.set(name, entry.id);
+    const mainBar = document.getElementById('captionBar');
+    const ssBar = document.getElementById('ssCaptionBar');
+    if(mainBar) mainBar.appendChild(entry.mainEl);
+    if(ssBar) ssBar.appendChild(entry.ssEl);
+    // Keep only the most recent CAPTION_HISTORY_MAX lines on screen.
+    while(captionQueue.length > CAPTION_HISTORY_MAX){
+      removeCaptionEntry(captionQueue[0], true);
+    }
+  }
+  const label = (name === state.myName ? 'You' : name) + ':';
+  [entry.mainEl, entry.ssEl].forEach(el=>{
+    el.querySelector('.caption-name').textContent = label;
+    el.querySelector('.caption-text').textContent = text;
+  });
+  clearTimeout(entry.timeout);
+  if(final){
+    // Their next utterance becomes a fresh line rather than editing this one.
+    captionActiveBySpeaker.delete(name);
+    entry.timeout = setTimeout(()=> removeCaptionEntry(entry), 5000);
+  }
+}
+function clearCaption(name){
+  const activeId = captionActiveBySpeaker.get(name);
+  const entry = activeId ? captionQueue.find(e=> e.id === activeId) : null;
+  if(entry) removeCaptionEntry(entry);
 }
 document.getElementById('captionsBtn').addEventListener('click', toggleCaptions);
 document.getElementById('ssCaptionsBtn').addEventListener('click', toggleCaptions);

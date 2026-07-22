@@ -225,7 +225,7 @@
   .messages::-webkit-scrollbar{ width:6px; }
   .messages::-webkit-scrollbar-thumb{ background:var(--border); border-radius:3px; }
 
-  .msg{ position:relative; max-width:78%; padding:9px 13px; border-radius:16px; font-size:14.5px; line-height:1.45; word-wrap:break-word; user-select:none; touch-action:pan-y; will-change:transform; }
+  .msg{ position:relative; max-width:78%; padding:9px 13px; border-radius:16px; font-size:14.5px; line-height:1.45; word-wrap:break-word; user-select:none; touch-action:pan-y; will-change:transform; font-family:var(--font-chat, 'Inter'),sans-serif; }
   .msg.me{ align-self:flex-end; background:var(--bubble-me-bg); color:var(--bubble-me-text); border-bottom-right-radius:5px; }
   .msg.them{ align-self:flex-start; background:var(--bubble-them-bg); color:var(--bubble-them-text); border:1px solid var(--bubble-them-border); border-bottom-left-radius:5px; }
   .msg .who{ font-size:11px; color:var(--accent); font-weight:600; margin-bottom:3px; font-family:'Space Grotesk',sans-serif; }
@@ -238,6 +238,7 @@
   .msg.pressing{ transform:scale(0.97); transition:transform .15s ease; }
   .msg.armed{ transform:scale(0.97); box-shadow:0 10px 26px -6px rgba(20,30,50,0.22); transition:transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease; cursor:grab; }
   .msg.dragging{ cursor:grabbing; z-index:60; box-shadow:0 18px 40px -10px rgba(20,30,50,0.4), 0 2px 0 rgba(255,255,255,0.5) inset; transition:none !important; touch-action:none; }
+  .msg-placeholder{ border-radius:16px; background:var(--accent-soft); opacity:0.5; flex-shrink:0; }
 
   /* ---------- typing indicator ---------- */
   .typing-row{ align-self:flex-start; display:flex; align-items:center; gap:5px; background:var(--bubble-them-bg); border:1px solid var(--bubble-them-border); border-radius:16px; border-bottom-left-radius:5px; padding:11px 15px; animation:typingIn .28s cubic-bezier(.2,.8,.2,1); }
@@ -255,21 +256,15 @@
   @keyframes msgOut{ to{ opacity:0; transform:scale(0.85); } }
 
   .file-chip{ display:flex; align-items:center; gap:9px; border-radius:11px; padding:9px 11px; color:inherit; text-decoration:none; font-size:13px; font-weight:500; }
-  /* darken (not lighten) the sender's own bubble for the chip — a light
-     overlay on a colored bubble can wash the bubble text out to near-grey */
   .msg.me .file-chip{ background:rgba(0,0,0,0.16); border:1px solid rgba(0,0,0,0.1); }
   .msg.them .file-chip{ background:var(--surface-2); border:1px solid var(--bubble-them-border); }
 
-  /* incoming file/photo progress bubble */
   .progress-msg{ width:180px; }
   .progress-box{ width:100%; height:110px; background:linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
   @keyframes shimmer{ 0%{ background-position:100% 0; } 100%{ background-position:0 0; } }
   .progress-text{ font-size:11.5px; color:var(--muted); margin-top:7px; display:flex; justify-content:space-between; }
   .progress-bar-track{ height:4px; background:var(--border); border-radius:2px; margin-top:4px; overflow:hidden; }
   .progress-bar-fill{ height:100%; background:var(--accent); width:0%; transition:width .2s ease; }
-  /* on the sender's own bubble, --muted and --accent can be too close to (or
-     exactly) the bubble color itself, making the label/bar unreadable — use
-     the bubble's own text color and a dark track instead */
   .msg.me .progress-text{ color:var(--bubble-me-text); opacity:0.85; }
   .msg.me .progress-bar-track{ background:rgba(0,0,0,0.24); }
   .msg.me .progress-bar-fill{ background:var(--bubble-me-text); }
@@ -314,6 +309,7 @@
   .sheet-action-btn.danger{ color:var(--danger); }
   .sheet-action-btn.danger:hover{ border-color:var(--danger); }
   .msg-preview{ background:var(--surface-2); border:1px solid var(--border); border-radius:11px; padding:10px 12px; font-size:13px; color:var(--muted); margin-bottom:14px; max-height:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  select.font-select{ width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:12px 14px; border-radius:11px; font-family:'Inter',sans-serif; font-size:14.5px; outline:none; }
 
   /* ---------- animated QR code ---------- */
   .qr-frame{ width:216px; height:216px; margin:6px auto 16px; position:relative; background:var(--surface-2); border:1px solid var(--border); border-radius:16px; overflow:hidden; display:flex; align-items:center; justify-content:center; }
@@ -336,12 +332,41 @@
   .members-list{ display:flex; flex-direction:column; gap:2px; margin-bottom:4px; }
   .member-row{ display:flex; align-items:center; gap:8px; font-size:13.5px; padding:6px 2px; }
   .member-dot{ width:7px; height:7px; border-radius:50%; background:var(--online); flex-shrink:0; }
+  .member-row .member-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .kick-btn{ background:transparent; border:1px solid var(--border); color:var(--danger); border-radius:8px; padding:4px 9px; font-size:11px; cursor:pointer; font-family:'Space Grotesk',sans-serif; flex-shrink:0; }
+  .kick-btn:hover{ background:var(--danger); color:#fff; border-color:var(--danger); }
 
   /* ---------- lightbox for images ---------- */
   .lightbox{ position:fixed; inset:0; background:rgba(5,8,12,0.9); display:none; align-items:center; justify-content:center; z-index:90; padding:20px; }
   .lightbox.active{ display:flex; }
   .lightbox img{ max-width:100%; max-height:100%; border-radius:10px; }
   .lightbox-close{ position:absolute; top:calc(16px + env(safe-area-inset-top)); right:16px; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.15); color:#fff; border:none; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+  /* ---------- themed modal (replaces browser confirm/alert popups) ---------- */
+  .modal-backdrop{ position:fixed; inset:0; background:rgba(10,14,20,0.5); display:none; align-items:center; justify-content:center; z-index:120; padding:24px; }
+  .modal-backdrop.active{ display:flex; }
+  .modal-card{ background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:22px; width:100%; max-width:340px; box-shadow:0 20px 60px -20px rgba(0,0,0,0.4); transform:scale(0.92) translateY(10px); opacity:0; transition:transform .18s cubic-bezier(.2,.8,.2,1), opacity .18s ease; }
+  .modal-backdrop.active .modal-card{ transform:scale(1) translateY(0); opacity:1; }
+  .modal-icon{ width:44px; height:44px; border-radius:50%; background:var(--accent-soft); color:var(--accent); display:flex; align-items:center; justify-content:center; margin-bottom:14px; }
+  .modal-icon.danger{ background:rgba(224,87,92,0.14); color:var(--danger); }
+  .modal-title{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:16.5px; margin:0 0 6px; }
+  .modal-body{ color:var(--muted); font-size:13.5px; line-height:1.5; margin:0 0 20px; }
+  .modal-actions{ display:flex; gap:9px; }
+  .modal-actions .btn{ margin-top:0; }
+
+  /* ---------- join request popup ---------- */
+  .joinreq-name{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:15px; color:var(--text); }
+
+  /* ---------- screen share ---------- */
+  .screenshare-modal{ position:fixed; inset:0; background:#0a0d12; display:none; z-index:130; flex-direction:column; }
+  .screenshare-modal.active{ display:flex; }
+  .ss-header{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; padding-top:calc(12px + env(safe-area-inset-top)); background:#12161d; color:#e7e9ec; }
+  .ss-header .ss-title{ font-family:'Space Grotesk',sans-serif; font-size:14px; display:flex; align-items:center; gap:8px; }
+  .ss-live-dot{ width:8px; height:8px; border-radius:50%; background:#e0575c; animation:pulse 1.4s ease-in-out infinite; }
+  .ss-close{ background:rgba(255,255,255,0.1); border:none; color:#fff; width:34px; height:34px; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .ss-video-wrap{ flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:10px; }
+  .ss-video-wrap video{ max-width:100%; max-height:100%; border-radius:8px; background:#000; }
+  .ss-empty{ color:#8b93a0; font-family:'Inter',sans-serif; font-size:13.5px; text-align:center; max-width:280px; line-height:1.6; }
 
   /* ---------- mobile: full-screen chat, WhatsApp-style ---------- */
   @media (max-width:700px){
@@ -350,7 +375,6 @@
     .chat-header{ border-radius:0; padding-top:calc(12px + env(safe-area-inset-top)); }
     .composer{ border-radius:0; padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
     .messages{ border-left:none; border-right:none; }
-    /* prevents iOS Safari from zooming the page in when a text input is focused */
     input[type=text], input[type=password]{ font-size:16px; }
     .code-chars span{ width:28px; height:38px; font-size:19px; }
   }
@@ -396,6 +420,12 @@
           <button class="inline-btn" id="genCode">Generate</button>
         </div>
         <p class="hint">Share this code with people separately from the room code (e.g. in person or a different app) — that's what keeps this end‑to‑end encrypted.</p>
+      </div>
+      <div class="field">
+        <label style="display:flex; align-items:center; justify-content:space-between; text-transform:none; font-weight:500; font-size:13.5px; color:var(--text);">
+          <span>Approve each person before they join</span>
+          <input type="checkbox" id="startRequireApproval" checked style="width:18px;height:18px;accent-color:var(--accent);">
+        </label>
       </div>
       <p class="error" id="startError"></p>
       <button class="btn btn-primary" id="startBtn">Create room</button>
@@ -457,6 +487,9 @@
       </div>
     </div>
     <div class="header-right">
+      <div class="icon-btn" id="screenShareBtn" title="Screen share">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+      </div>
       <div class="icon-btn" id="menuBtn" title="Chat menu">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg>
       </div>
@@ -493,6 +526,8 @@
   <div class="swatch-label">Chat background</div>
   <div class="pattern-row" id="patternSwatches"></div>
   <div class="pattern-label-row" id="patternLabels"></div>
+  <div class="swatch-label">Chat font</div>
+  <select class="font-select" id="fontSelect"></select>
   <button class="btn btn-ghost sheet-done" id="closeThemeSheet">Done</button>
 </div>
 
@@ -568,10 +603,48 @@
   <button class="btn btn-ghost sheet-done" id="closeMsgActionSheet">Cancel</button>
 </div>
 
+<!-- Join request sheet (host only) -->
+<div class="sheet" id="joinReqSheet">
+  <div class="sheet-handle"></div>
+  <h3>Join request</h3>
+  <p class="sheet-sub"><span class="joinreq-name" id="joinReqName">Someone</span> wants to join this room.</p>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn btn-primary" id="joinReqAllow" style="flex:1;">Allow</button>
+    <button class="btn btn-ghost" id="joinReqReject" style="flex:1; margin-top:0; color:var(--danger); border-color:var(--danger);">Reject</button>
+  </div>
+</div>
+
 <!-- Fullscreen image viewer -->
 <div class="lightbox" id="lightbox">
   <button class="lightbox-close" id="lightboxClose">✕</button>
   <img id="lightboxImg" alt="photo">
+</div>
+
+<!-- Themed modal, replaces browser confirm()/alert() everywhere -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal-card" id="modalCard">
+    <div class="modal-icon" id="modalIcon">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+    </div>
+    <div class="modal-title" id="modalTitle">Are you sure?</div>
+    <p class="modal-body" id="modalBody">This action cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modalCancelBtn" style="flex:1; margin-top:0;">Cancel</button>
+      <button class="btn btn-primary" id="modalConfirmBtn" style="flex:1;">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Screen share viewer -->
+<div class="screenshare-modal" id="screenShareModal">
+  <div class="ss-header">
+    <div class="ss-title"><span class="ss-live-dot" id="ssLiveDot" style="display:none;"></span><span id="ssTitle">Screen share</span></div>
+    <button class="ss-close" id="ssCloseBtn">✕</button>
+  </div>
+  <div class="ss-video-wrap">
+    <video id="ssVideo" autoplay playsinline style="display:none;"></video>
+    <div class="ss-empty" id="ssEmpty">No one is sharing their screen yet. Tap the screen-share icon in the header to start sharing yours, or wait for someone else to share.<br><br><span style="opacity:0.7;">This is view-only — for privacy and security, a browser can never let one device remote-control another's mouse, keyboard, or settings. Screen sharing just lets you see and talk someone through it.</span></div>
+  </div>
 </div>
 
 <script>
@@ -595,9 +668,30 @@ const PATTERNS = [
   {id:'grid',     name:'Grid',     style:'linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)', size:'12px 12px'},
   {id:'diagonal', name:'Diagonal', style:'repeating-linear-gradient(45deg, currentColor 0 1px, transparent 1px 8px)'}
 ];
+const FONTS = [
+  {id:'Inter', label:'Inter (default)', gfamily:null},
+  {id:'Space Grotesk', label:'Space Grotesk', gfamily:'Space+Grotesk:wght@400;500;600'},
+  {id:'Poppins', label:'Poppins', gfamily:'Poppins:wght@400;500;600'},
+  {id:'Nunito', label:'Nunito', gfamily:'Nunito:wght@400;600;700'},
+  {id:'Merriweather', label:'Merriweather (serif)', gfamily:'Merriweather:wght@400;700'},
+  {id:'Caveat', label:'Caveat (handwritten)', gfamily:'Caveat:wght@500;700'},
+  {id:'JetBrains Mono', label:'JetBrains Mono', gfamily:'JetBrains+Mono:wght@400;600'},
+  {id:'Comfortaa', label:'Comfortaa', gfamily:'Comfortaa:wght@400;600'}
+];
+const loadedFonts = new Set();
+function ensureFontLoaded(fontId){
+  const f = FONTS.find(x=>x.id===fontId);
+  if(!f || !f.gfamily || loadedFonts.has(f.id)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=' + f.gfamily + '&display=swap';
+  document.head.appendChild(link);
+  loadedFonts.add(f.id);
+}
 
 function getSavedTheme(){ return localStorage.getItem('cipher-theme') || 'crimson-dark'; }
 function getSavedPattern(){ return localStorage.getItem('cipher-pattern') || 'dots'; }
+function getSavedFont(){ return localStorage.getItem('cipher-font') || 'Inter'; }
 
 function applyTheme(id){
   document.documentElement.setAttribute('data-theme', id);
@@ -609,9 +703,15 @@ function applyPattern(id){
   localStorage.setItem('cipher-pattern', id);
   renderPatternSwatches();
 }
+function applyFont(id){
+  ensureFontLoaded(id);
+  document.documentElement.style.setProperty('--font-chat', "'" + id + "'");
+  localStorage.setItem('cipher-font', id);
+}
 // apply saved (or default) look immediately, before anything else renders
 applyTheme(getSavedTheme());
 applyPattern(getSavedPattern());
+applyFont(getSavedFont());
 
 function renderThemeSwatches(){
   const wrap = document.getElementById('themeSwatches');
@@ -641,8 +741,21 @@ function renderPatternSwatches(){
     labels.appendChild(lab);
   });
 }
+function renderFontSelect(){
+  const sel = document.getElementById('fontSelect');
+  const current = getSavedFont();
+  sel.innerHTML = '';
+  FONTS.forEach(f=>{
+    const opt = document.createElement('option');
+    opt.value = f.id; opt.textContent = f.label;
+    if(f.id === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.onchange = ()=> applyFont(sel.value);
+}
 renderThemeSwatches();
 renderPatternSwatches();
+renderFontSelect();
 
 /* ---------------- shared bottom-sheet system ---------------- */
 function openSheet(id){
@@ -661,6 +774,30 @@ document.getElementById('closeQrSheet').addEventListener('click', closeSheets);
 document.getElementById('appearanceBtnLanding').addEventListener('click', ()=> openSheet('themeSheet'));
 document.getElementById('openAppearanceFromMenu').addEventListener('click', ()=> openSheet('themeSheet'));
 
+/* ---------------- themed modal helper (replaces confirm()/alert()) ---------------- */
+function showModal({title, body, confirmText='Confirm', cancelText='Cancel', danger=false, onConfirm, hideCancel=false}){
+  const backdrop = document.getElementById('modalBackdrop');
+  document.getElementById('modalTitle').textContent = title || 'Are you sure?';
+  document.getElementById('modalBody').textContent = body || '';
+  const confirmBtn = document.getElementById('modalConfirmBtn');
+  const cancelBtn = document.getElementById('modalCancelBtn');
+  confirmBtn.textContent = confirmText;
+  cancelBtn.textContent = cancelText;
+  cancelBtn.style.display = hideCancel ? 'none' : 'block';
+  document.getElementById('modalIcon').className = 'modal-icon' + (danger ? ' danger' : '');
+  backdrop.classList.add('active');
+
+  function cleanup(){
+    backdrop.classList.remove('active');
+    confirmBtn.onclick = null; cancelBtn.onclick = null;
+  }
+  confirmBtn.onclick = ()=>{ cleanup(); if(onConfirm) onConfirm(); };
+  cancelBtn.onclick = ()=> cleanup();
+}
+document.getElementById('modalBackdrop').addEventListener('click', (e)=>{
+  if(e.target.id === 'modalBackdrop') document.getElementById('modalCancelBtn').click();
+});
+
 /* ---------------- animated QR code for the invite link ---------------- */
 function generateQR(link){
   const wrap = document.getElementById('qrCanvasWrap');
@@ -668,8 +805,6 @@ function generateQR(link){
   wrap.innerHTML = '';
   wrap.classList.remove('ready');
   overlay.classList.remove('hidden');
-  // build the code right away, but hold the reveal for a beat so the scan
-  // animation reads as "generating" instead of just popping in
   new QRCode(wrap, {
     text: link,
     width: 176,
@@ -695,9 +830,6 @@ document.getElementById('copyLinkFromQr').addEventListener('click', ()=>{
 });
 
 /* ===================== mobile viewport / keyboard handling ===================== */
-/* Keeps the app sized to the *visible* viewport (not the full page), so when the
-   on-screen keyboard opens the header stays put, the message list shrinks, and
-   the composer sits right above the keyboard — the same feel as WhatsApp. */
 function setAppHeight(){
   const h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
   document.documentElement.style.setProperty('--app-height', h + 'px');
@@ -716,7 +848,7 @@ function scrollMessagesToBottom(){
   requestAnimationFrame(()=>{ box.scrollTop = box.scrollHeight; });
 }
 document.getElementById('msgInput').addEventListener('focus', ()=>{
-  setTimeout(scrollMessagesToBottom, 300); // give the keyboard time to animate up
+  setTimeout(scrollMessagesToBottom, 300);
 });
 
 /* ---------------- crypto ---------------- */
@@ -758,23 +890,20 @@ function randomCode(len){
 
 let state = {
   isHost:false, myId:'', myName:'', roomCode:'', securityCode:'', roomName:'', key:null,
-  peer:null, hostConn:null, conns:new Map(), // host only: peerId -> {conn,name}
-  members:new Map(), // id -> name (everyone keeps a roster)
-  leavingIntentionally:false
+  peer:null, hostConn:null, conns:new Map(),
+  members:new Map(),
+  leavingIntentionally:false,
+  requireApproval:true,
+  pendingApprovals:new Map() // host only: connId -> conn (waiting for allow/reject)
 };
 let secVisible = false;
 let reconnectAttempts = 0;
 let reconnectTimer = null;
-let incomingFiles = new Map(); // id -> {chunks,total,received,name,ts,isImage,fileName,el}
-let pendingLeaves = new Map(); // host only: name -> timeout id (grace period before announcing a leave)
-let messageElements = new Map(); // msgId -> {el, mine, preview}
+let incomingFiles = new Map();
+let pendingLeaves = new Map();
+let messageElements = new Map();
 let activeMsgId = null;
 
-/* ICE config: STUN handles most connections; TURN relays the ones that can't
-   connect directly (corporate/hotel wifi, some mobile carriers, symmetric NAT).
-   This uses Open Relay's free public TURN servers — fine for personal/small-group
-   use. For heavier use, swap in your own TURN credentials (e.g. from metered.ca,
-   Twilio, or Cloudflare Calls). */
 const ICE_CONFIG = {
   iceServers: [
     { urls: 'stun:stun.relay.metered.ca:80' },
@@ -857,7 +986,6 @@ function attachMessageActions(el, isSystem, msgId, mine, preview){
   const chip = el.querySelector('.file-chip');
   if(chip) chip.addEventListener('click', e=> e.stopPropagation());
 
-  // long-press (touch) + click (mouse) both open the message action sheet
   let pressTimer = null;
   let longPressFired = false;
 
@@ -887,35 +1015,39 @@ function attachMessageActions(el, isSystem, msgId, mine, preview){
 
   el.addEventListener('click', (e)=>{
     if(e.target.closest('.file-chip')) return;
-    if(longPressFired){ longPressFired = false; return; } // long-press already handled it
+    if(longPressFired){ longPressFired = false; return; }
     openMsgActionSheet(msgId);
   });
 
   el.addEventListener('contextmenu', (e)=>{ e.preventDefault(); openMsgActionSheet(msgId); });
 
-  // drag-to-reorder: only for messages you sent, and only once the bubble is
-  // "armed" (long press). This reorders your own view only — it doesn't
-  // resend or resync order with the other person.
   if(mine && msgId) makeMessageDraggable(el, msgId, cancelPress, ()=>{ longPressFired = true; });
 }
 
+/* ---------------- drag-to-reorder (rebuilt for stability) ----------------
+   Uses a fixed-position "ghost" that follows the pointer 1:1, plus a
+   placeholder element left in the flow to mark the drop position. This
+   avoids the previous approach's feedback loop (re-measuring the dragged
+   element's own rect immediately after moving it), which was the source
+   of the flicker/overshoot. */
 function makeMessageDraggable(el, msgId, cancelPress, markHandled){
   const box = document.getElementById('messages');
   let armTimer = null;
   let armed = false;
   let dragging = false;
-  let startY = 0;
-  let originY = 0; // translateY offset accumulated across re-parenting
-  let latestY = 0;
-  let rafId = null;
+  let startY = 0, startX = 0;
+  let pointerId = null;
+  let ghost = null;
+  let placeholder = null;
+  let rect0 = null;
 
-  function getY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
+  function getPoint(e){ return e.touches ? e.touches[0] : e; }
 
   function onDown(e){
     if(e.target.closest('.file-chip')) return;
     if(e.type === 'mousedown' && e.button !== 0) return;
-    startY = getY(e);
-    originY = 0;
+    const p = getPoint(e);
+    startY = p.clientY; startX = p.clientX;
     armed = false; dragging = false;
     clearTimeout(armTimer);
     armTimer = setTimeout(()=>{
@@ -927,76 +1059,86 @@ function makeMessageDraggable(el, msgId, cancelPress, markHandled){
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchmove', onMove, {passive:false});
     window.addEventListener('touchend', onUp);
+    window.addEventListener('touchcancel', onUp);
+  }
+
+  function beginDrag(){
+    dragging = true;
+    markHandled();
+    cancelPress();
+    el.classList.remove('pressing');
+
+    rect0 = el.getBoundingClientRect();
+    placeholder = document.createElement('div');
+    placeholder.className = 'msg-placeholder';
+    placeholder.style.width = rect0.width + 'px';
+    placeholder.style.height = rect0.height + 'px';
+    placeholder.style.alignSelf = 'flex-end'; // "me" bubbles are right-aligned
+    el.parentNode.insertBefore(placeholder, el);
+
+    ghost = el.cloneNode(true);
+    ghost.classList.add('dragging');
+    ghost.classList.remove('armed','pressing');
+    ghost.style.position = 'fixed';
+    ghost.style.left = rect0.left + 'px';
+    ghost.style.top = rect0.top + 'px';
+    ghost.style.width = rect0.width + 'px';
+    ghost.style.margin = '0';
+    ghost.style.pointerEvents = 'none';
+    document.body.appendChild(ghost);
+
+    el.style.display = 'none';
   }
 
   function onMove(e){
-    const y = getY(e);
-    const dy = y - startY;
+    const p = getPoint(e);
+    const dx = p.clientX - startX, dy = p.clientY - startY;
     if(!armed){
-      if(Math.abs(dy) > 10){ clearTimeout(armTimer); teardown(); }
+      if(Math.abs(dy) > 10 || Math.abs(dx) > 10){ clearTimeout(armTimer); teardown(); }
       return;
     }
-    if(!dragging && Math.abs(dy) > 4){
-      dragging = true;
-      markHandled();      // suppress the click/action-sheet on release
-      cancelPress();       // make sure the plain "pressing" state is cleared
-      el.classList.remove('pressing');
-      el.classList.add('dragging');
-      el.style.transition = 'none'; // kill the armed-state transition so the bubble tracks 1:1
-    }
+    if(!dragging && Math.abs(dy) > 4) beginDrag();
     if(!dragging) return;
     if(e.cancelable) e.preventDefault();
-    latestY = y;
-    if(rafId) return;
-    rafId = requestAnimationFrame(processFrame); // batch DOM reads/writes to once per frame
-  }
 
-  function processFrame(){
-    rafId = null;
-    if(!dragging) return;
-    const dy = latestY - startY;
-    const totalDy = originY + dy;
-    el.style.transform = `translateY(${totalDy}px)`;
+    const newTop = rect0.top + dy;
+    ghost.style.top = newTop + 'px';
 
-    // check neighbors (skip system messages / typing rows) and swap in the DOM
-    // when the dragged bubble's center passes theirs
-    const rect = el.getBoundingClientRect();
-    const centerY = rect.top + rect.height / 2;
-    const prev = el.previousElementSibling;
-    const next = el.nextElementSibling;
-
-    if(prev && prev.classList.contains('msg') && !prev.classList.contains('dragging')){
-      const pRect = prev.getBoundingClientRect();
-      if(centerY < pRect.top + pRect.height / 2){
-        box.insertBefore(el, prev);
-        originY = totalDy;
-        startY = latestY;
-        el.style.transform = `translateY(0px)`;
-        return;
-      }
+    // find where the placeholder should sit: compare ghost's vertical
+    // center to each sibling bubble's center, using each sibling's own
+    // (unaffected) rect — never re-measuring the moving element itself.
+    const ghostCenter = newTop + rect0.height / 2;
+    const siblings = [...box.querySelectorAll('.msg[data-msg-id]')].filter(s => s !== placeholder);
+    let target = null;
+    for(const sib of siblings){
+      const r = sib.getBoundingClientRect();
+      const sibCenter = r.top + r.height / 2;
+      if(ghostCenter < sibCenter){ target = sib; break; }
     }
-    if(next && next.classList.contains('msg') && !next.classList.contains('dragging')){
-      const nRect = next.getBoundingClientRect();
-      if(centerY > nRect.top + nRect.height / 2){
-        box.insertBefore(next, el);
-        originY = totalDy;
-        startY = latestY;
-        el.style.transform = `translateY(0px)`;
-      }
+    if(target && target !== placeholder.nextSibling){
+      box.insertBefore(placeholder, target);
+    } else if(!target && placeholder !== box.lastElementChild){
+      box.appendChild(placeholder);
     }
   }
 
   function onUp(){
     clearTimeout(armTimer);
-    if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
     if(dragging){
-      // brief snap-back transition so the drop reads as smooth, not abrupt
-      el.style.transition = 'transform .15s cubic-bezier(.2,.8,.2,1)';
-      el.style.transform = '';
-      el.classList.remove('dragging');
       if(navigator.vibrate) navigator.vibrate(8);
-      broadcastCurrentOrder();
-      setTimeout(()=>{ el.style.transition = ''; el.classList.remove('armed'); }, 170);
+      // snap ghost to the placeholder's final resting spot, then swap in the real element
+      const finalRect = placeholder.getBoundingClientRect();
+      ghost.style.transition = 'top .15s cubic-bezier(.2,.8,.2,1), left .15s cubic-bezier(.2,.8,.2,1)';
+      ghost.style.top = finalRect.top + 'px';
+      ghost.style.left = finalRect.left + 'px';
+      setTimeout(()=>{
+        placeholder.replaceWith(el);
+        el.style.display = '';
+        el.classList.remove('armed');
+        ghost.remove();
+        ghost = null; placeholder = null;
+        broadcastCurrentOrder();
+      }, 160);
     } else if(armed){
       el.classList.remove('armed');
     }
@@ -1009,6 +1151,7 @@ function makeMessageDraggable(el, msgId, cancelPress, markHandled){
     window.removeEventListener('mouseup', onUp);
     window.removeEventListener('touchmove', onMove);
     window.removeEventListener('touchend', onUp);
+    window.removeEventListener('touchcancel', onUp);
   }
 
   el.addEventListener('mousedown', onDown);
@@ -1206,11 +1349,42 @@ function updatePeerCount(){ updateHeaderTitle(); }
 function renderMembersList(){
   const wrap = document.getElementById('membersList');
   wrap.innerHTML = '';
-  state.members.forEach((name)=>{
+  state.members.forEach((name, id)=>{
     const row = document.createElement('div'); row.className = 'member-row';
-    row.innerHTML = `<span class="member-dot"></span>${escapeHtml(name)}`;
+    const isMe = (state.isHost && id === 'host') || (!state.isHost && id === state.myId);
+    row.innerHTML = `<span class="member-dot"></span><span class="member-name">${escapeHtml(name)}${isMe ? ' (you)' : ''}</span>`;
+    if(state.isHost && id !== 'host'){
+      const kickBtn = document.createElement('button');
+      kickBtn.className = 'kick-btn'; kickBtn.textContent = 'Remove';
+      kickBtn.addEventListener('click', ()=> confirmKick(id, name));
+      row.appendChild(kickBtn);
+    }
     wrap.appendChild(row);
   });
+}
+
+function confirmKick(connId, name){
+  showModal({
+    title: 'Remove ' + name + '?',
+    body: name + " will be disconnected from the room right away. They'd need a new approval to rejoin.",
+    confirmText: 'Remove', danger: true,
+    onConfirm: ()=> kickMember(connId, name)
+  });
+}
+async function kickMember(connId, name){
+  const entry = state.conns.get(connId);
+  if(!entry) return;
+  try{
+    const payload = await encryptObj(state.key, {type:'kicked'});
+    if(entry.conn.open) entry.conn.send(payload);
+  } catch(e){}
+  setTimeout(()=>{ try{ entry.conn.close(); }catch(e){} }, 150);
+  state.conns.delete(connId);
+  state.members.delete(connId);
+  hideTypingIndicator(name);
+  addMessage({system:true, text: name + ' was removed from the room'});
+  broadcastRoster();
+  renderMembersList();
 }
 
 function enterChatUI(){
@@ -1220,6 +1394,7 @@ function enterChatUI(){
   document.getElementById('menuRoomNameInput').value = state.roomName || '';
   setAppHeight();
   updateHeaderTitle();
+  armBackGuard();
 }
 
 document.getElementById('headerInfoBtn').addEventListener('click', ()=> document.getElementById('menuBtn').click());
@@ -1250,11 +1425,16 @@ document.getElementById('menuBtn').addEventListener('click', ()=>{
   openSheet('menuSheet');
 });
 document.getElementById('clearChatBtn').addEventListener('click', ()=>{
-  if(confirm('Clear this chat for you? Other people will still see their own copy.')){
-    document.getElementById('messages').innerHTML = '';
-    messageElements.clear();
-    closeSheets();
-  }
+  showModal({
+    title: 'Clear chat for you?',
+    body: 'Other people will still see their own copy of the conversation.',
+    confirmText: 'Clear', danger: true,
+    onConfirm: ()=>{
+      document.getElementById('messages').innerHTML = '';
+      messageElements.clear();
+      closeSheets();
+    }
+  });
 });
 
 /* ---------------- room renaming (synced to everyone) ---------------- */
@@ -1285,7 +1465,6 @@ async function relayToOthers(exceptId, payload){
   state.conns.forEach(({conn}, id)=>{ if(id !== exceptId && conn.open) conn.send(payload); });
 }
 
-/* send a ready-to-go encrypted payload to whoever we're connected to */
 function sendPayloadToPeers(payload){
   if(state.isHost){
     state.conns.forEach(({conn})=>{ if(conn.open) conn.send(payload); });
@@ -1294,12 +1473,48 @@ function sendPayloadToPeers(payload){
   }
 }
 
+/* ---------------- join approval (host only) ---------------- */
+let joinReqQueue = []; // {connId, name}
+function queueJoinRequest(connId, name){
+  joinReqQueue.push({connId, name});
+  maybeShowNextJoinRequest();
+}
+function maybeShowNextJoinRequest(){
+  if(document.getElementById('joinReqSheet').classList.contains('active')) return;
+  if(!joinReqQueue.length) return;
+  const {connId, name} = joinReqQueue[0];
+  document.getElementById('joinReqName').textContent = name;
+  openSheet('joinReqSheet');
+  const allowBtn = document.getElementById('joinReqAllow');
+  const rejectBtn = document.getElementById('joinReqReject');
+  allowBtn.onclick = ()=>{ resolveJoinRequest(connId, true); };
+  rejectBtn.onclick = ()=>{ resolveJoinRequest(connId, false); };
+}
+async function resolveJoinRequest(connId, allowed){
+  joinReqQueue.shift();
+  closeSheets();
+  const entry = state.conns.get(connId);
+  if(entry && entry.conn.open){
+    const payload = await encryptObj(state.key, {type: allowed ? 'join-accepted' : 'join-rejected'});
+    entry.conn.send(payload);
+  }
+  if(allowed && entry){
+    state.members.set(connId, entry.pendingName);
+    addMessage({system:true, text: entry.pendingName + ' joined the room'});
+    await broadcastRoster();
+    if(document.getElementById('chatWrap').classList.contains('active') === false) enterChatUI();
+  } else if(!allowed && entry){
+    setTimeout(()=>{ try{ entry.conn.close(); }catch(e){} }, 150);
+    state.conns.delete(connId);
+  }
+  setTimeout(maybeShowNextJoinRequest, 250);
+}
+
 /* ---------------- handling incoming data ---------------- */
 async function handleIncoming(raw, fromConnId){
   let obj;
   try{ obj = await decryptObj(state.key, raw); }
   catch(e){
-    // wrong key — reject silently (host: drop this peer)
     if(state.isHost && fromConnId){
       const entry = state.conns.get(fromConnId);
       if(entry && !state.members.has(fromConnId)){ entry.conn.close(); }
@@ -1308,16 +1523,33 @@ async function handleIncoming(raw, fromConnId){
   }
 
   if(obj.type === 'join' && state.isHost){
+    const entry = state.conns.get(fromConnId);
     const reconnecting = pendingLeaves.has(obj.name);
+    if(state.requireApproval && !reconnecting){
+      if(entry) entry.pendingName = obj.name;
+      queueJoinRequest(fromConnId, obj.name);
+      return;
+    }
     if(reconnecting){ clearTimeout(pendingLeaves.get(obj.name)); pendingLeaves.delete(obj.name); }
+    const payload = await encryptObj(state.key, {type:'join-accepted'});
+    if(entry && entry.conn.open) entry.conn.send(payload);
     state.members.set(fromConnId, obj.name);
     addMessage({system:true, text: obj.name + (reconnecting ? ' reconnected' : ' joined the room')});
     await broadcastRoster();
   }
+  else if(obj.type === 'join-accepted' && !state.isHost){
+    onJoinAccepted();
+  }
+  else if(obj.type === 'join-rejected' && !state.isHost){
+    onJoinRejected();
+  }
+  else if(obj.type === 'kicked' && !state.isHost){
+    onKicked();
+  }
   else if(obj.type === 'chat'){
     hideTypingIndicator(obj.name);
     addMessage({who: obj.name, text: obj.text, mine:false, ts: obj.ts, id: obj.id});
-    if(state.isHost){ await relayToOthers(fromConnId, raw); } // blind relay of ciphertext to everyone else
+    if(state.isHost){ await relayToOthers(fromConnId, raw); }
   }
   else if(obj.type === 'file-chunk'){
     hideTypingIndicator(obj.name);
@@ -1374,10 +1606,45 @@ async function handleIncoming(raw, fromConnId){
   else if(obj.type === 'system' && !state.isHost){
     addMessage({system:true, text: obj.text});
   }
+  else if(obj.type === 'ss-signal'){
+    handleScreenShareSignal(obj, fromConnId);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+}
+
+function onJoinAccepted(){
+  const btn = document.getElementById('joinBtn');
+  if(!document.getElementById('chatWrap').classList.contains('active')){
+    enterChatUI();
+    addMessage({system:true, text:'You joined the room'});
+    btn.disabled = false; btn.textContent = 'Join room';
+  } else {
+    addMessage({system:true, text:'Reconnected'});
+  }
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('msgInput').disabled = false;
+  document.getElementById('attachBtn').disabled = false;
+}
+function onJoinRejected(){
+  showError('joinError', 'The host declined your request to join.');
+  const btn = document.getElementById('joinBtn');
+  btn.disabled = false; btn.textContent = 'Join room';
+  state.leavingIntentionally = true;
+  try{ state.peer && state.peer.destroy(); }catch(e){}
+}
+function onKicked(){
+  state.leavingIntentionally = true;
+  showModal({
+    title: 'Removed from room',
+    body: 'The host removed you from this room.',
+    confirmText: 'OK', hideCancel: true,
+    onConfirm: ()=> location.reload()
+  });
+  try{ state.peer && state.peer.destroy(); }catch(e){}
 }
 
 /* ---------------- typing indicator ---------------- */
-let typingIndicators = new Map(); // name -> {el, timeout}
+let typingIndicators = new Map();
 function showTypingIndicator(name){
   if(!name || name === state.myName) return;
   const box = document.getElementById('messages');
@@ -1393,7 +1660,6 @@ function showTypingIndicator(name){
     if(isNearBottom(box)) scrollMessagesToBottom();
   }
   clearTimeout(entry.timeout);
-  // auto-clear if we don't hear a "stopped typing" signal in time (e.g. tab closed)
   entry.timeout = setTimeout(()=> hideTypingIndicator(name), 4000);
 }
 function hideTypingIndicator(name){
@@ -1415,7 +1681,6 @@ document.getElementById('msgInput').addEventListener('input', ()=>{
   const val = document.getElementById('msgInput').value;
   clearTimeout(typingStopTimer);
   if(val.trim().length === 0){
-    // box just got cleared — tell others right away
     sendTypingSignal(false);
     lastTypingSentAt = 0;
     return;
@@ -1433,6 +1698,7 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
   const name = document.getElementById('startName').value.trim();
   const code = document.getElementById('startCode').value.trim();
   const roomNameInput = document.getElementById('startRoomName').value.trim();
+  const requireApproval = document.getElementById('startRequireApproval').checked;
   showError('startError','');
   if(!name){ showError('startError','Enter your name.'); return; }
   if(!code || code.length < 4){ showError('startError','Security code must be at least 4 characters.'); return; }
@@ -1448,6 +1714,7 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
   state.roomCode = roomCode;
   state.securityCode = code;
   state.roomName = roomNameInput;
+  state.requireApproval = requireApproval;
   state.key = await deriveKey(roomCode, code);
   state.members.set('host', name);
 
@@ -1455,7 +1722,7 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
   state.peer = peer;
 
   peer.on('open', (id)=>{
-    if(state.myId){ // reconnected to the signaling server after a drop — existing P2P links are unaffected
+    if(state.myId){
       hideReconnectBanner();
       return;
     }
@@ -1481,12 +1748,10 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
       const memberName = state.members.get(connId);
       state.conns.delete(connId);
       state.members.delete(connId);
+      joinReqQueue = joinReqQueue.filter(r => r.connId !== connId);
       if(memberName) hideTypingIndicator(memberName);
       updatePeerCount();
       if(wasMember){
-        // grace period: a dropped connection often just means a brief network
-        // hiccup or a locked phone — wait before announcing they've left, so a
-        // quick reconnect (matched by name) reads as "reconnected", not "left".
         if(pendingLeaves.has(memberName)) clearTimeout(pendingLeaves.get(memberName));
         const timer = setTimeout(()=>{
           pendingLeaves.delete(memberName);
@@ -1496,11 +1761,9 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
         pendingLeaves.set(memberName, timer);
       }
     });
-    // first successful chat entry: transition host UI on first join
-    if(document.getElementById('chatWrap').classList.contains('active') === false){
-      enterChatUI();
-    }
   });
+
+  peer.on('call', (call)=> handleIncomingCall(call));
 
   peer.on('error', (err)=>{
     console.error(err);
@@ -1539,6 +1802,7 @@ document.getElementById('joinBtn').addEventListener('click', async ()=>{
     if(state.leavingIntentionally) return;
     try{ peer.reconnect(); }catch(e){}
   });
+  peer.on('call', (call)=> handleIncomingCall(call));
   peer.on('error', (err)=>{
     console.error(err);
     showError('joinError','Could not connect: ' + err.type + '. The room code may be wrong or the host has closed it.');
@@ -1570,15 +1834,8 @@ function connectToHost(isInitial){
     state.members.set(state.myId, state.myName);
     state.members.set('host', '(host)');
     if(isInitial){
-      enterChatUI();
-      addMessage({system:true, text:'You joined the room'});
       const btn = document.getElementById('joinBtn');
-      btn.disabled = false; btn.textContent = 'Join room';
-    } else {
-      addMessage({system:true, text:'Reconnected'});
-      document.getElementById('sendBtn').disabled = false;
-      document.getElementById('msgInput').disabled = false;
-      document.getElementById('attachBtn').disabled = false;
+      btn.textContent = 'Waiting for host to let you in…';
     }
   });
 
@@ -1653,7 +1910,7 @@ document.getElementById('sendBtn').addEventListener('click', sendMessage);
 document.getElementById('msgInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendMessage(); });
 
 /* ---------------- sending photos & files (chunked, so large ones actually arrive) ---------------- */
-const CHUNK_SIZE = 15000; // characters per encrypted message — comfortably under data-channel limits on every browser
+const CHUNK_SIZE = 15000;
 
 function compressImage(file, maxDim, quality){
   return new Promise((resolve, reject)=>{
@@ -1687,9 +1944,7 @@ function fileToDataURL(file){
   });
 }
 
-// No hard cap beyond what the browser itself can hold as a base64 string in
-// memory. This is generous — large files just take longer, which is expected.
-const MAX_DATA_URL_LEN = 500 * 1024 * 1024; // ~375MB actual file (base64 adds ~33%)
+const MAX_DATA_URL_LEN = 500 * 1024 * 1024;
 
 function formatBytes(n){
   if(n < 1024) return n + ' B';
@@ -1698,11 +1953,9 @@ function formatBytes(n){
   return (n/(1024*1024*1024)).toFixed(2) + ' GB';
 }
 
-// ---- connection readiness, used to pause/resume an in-progress file send
-// across a network drop instead of silently losing chunks ----
 function transferReady(){
   if(state.isHost){
-    if(state.conns.size === 0) return true; // no one to send to — don't block
+    if(state.conns.size === 0) return true;
     for(const {conn} of state.conns.values()){ if(!conn.open) return false; }
     return true;
   }
@@ -1713,7 +1966,7 @@ function waitUntilTransferReady(buf){
   return new Promise(resolve=>{
     (function check(){
       if(transferReady() || (buf && buf.cancelled)) return resolve();
-      setTimeout(check, 600); // poll — connections can drop/return without a dedicated event we hook everywhere
+      setTimeout(check, 600);
     })();
   });
 }
@@ -1724,8 +1977,6 @@ async function ensureTransferReady(buf){
   setProgressPaused(buf, false);
 }
 
-// ---- queue so multiple files can be picked at once and sent concurrently,
-// each yielding to the others rather than blocking on one at a time ----
 let sendFileQueue = [];
 let activeSendCount = 0;
 const MAX_CONCURRENT_FILE_SENDS = 3;
@@ -1747,8 +1998,6 @@ async function sendFile(file){
     const isImage = file.type.startsWith('image/');
     let dataUrl;
     if(isImage){
-      // still compress photos for a snappier send — this is a quality choice,
-      // not a size limit. Large non-image files are sent as-is.
       dataUrl = await compressImage(file, 1280, 0.72);
       if(dataUrl.length > 3000000) dataUrl = await compressImage(file, 900, 0.5);
     } else {
@@ -1770,8 +2019,6 @@ async function sendFile(file){
 
     for(let i=buf.nextSeq; i<total; i++){
       if(buf.cancelled) break;
-      // pause here (showing it in the bubble) instead of dropping the chunk
-      // if the connection is down — resumes with this same chunk once it's back
       await ensureTransferReady(buf);
       if(buf.cancelled) break;
       const chunk = dataUrl.slice(i*CHUNK_SIZE, (i+1)*CHUNK_SIZE);
@@ -1782,10 +2029,8 @@ async function sendFile(file){
       sendPayloadToPeers(payload);
       buf.received++;
       buf.nextSeq = i+1;
-      // updating the DOM every chunk gets expensive on huge files with
-      // thousands of chunks, so throttle the visible refresh a bit
       if(i % 5 === 0 || i === total-1) updateProgressMessage(buf);
-      if(i % 3 === 2) await new Promise(r=> setTimeout(r, 0)); // yield so the UI doesn't freeze on big files, and lets other queued files' chunks interleave
+      if(i % 3 === 2) await new Promise(r=> setTimeout(r, 0));
     }
 
     if(buf.cancelled){
@@ -1811,15 +2056,153 @@ document.getElementById('fileInput').addEventListener('change', (e)=>{
   files.forEach(f=> queueFileSend(f));
 });
 
-/* ---------------- leaving ---------------- */
+/* ---------------- screen sharing (view-only — see note in the UI) ---------------- */
+let ssLocalStream = null;
+let ssActiveCalls = new Map(); // connId -> MediaConnection (host: outgoing to each peer; joiner: outgoing to host)
+let ssIncomingCall = null;
+let ssIsSharing = false;
+let ssRemoteSharerName = null;
+
+function openScreenShareModal(){
+  document.getElementById('screenShareModal').classList.add('active');
+}
+function closeScreenShareModal(){
+  document.getElementById('screenShareModal').classList.remove('active');
+}
+document.getElementById('screenShareBtn').addEventListener('click', async ()=>{
+  openScreenShareModal();
+  if(!ssIsSharing) await startScreenShare();
+});
+document.getElementById('ssCloseBtn').addEventListener('click', closeScreenShareModal);
+
+async function startScreenShare(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){
+    addMessage({system:true, text:"Your browser doesn't support screen sharing."});
+    return;
+  }
+  try{
+    ssLocalStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
+  } catch(e){
+    return; // user cancelled the picker
+  }
+  ssIsSharing = true;
+  document.getElementById('ssTitle').textContent = 'You are sharing your screen';
+  document.getElementById('ssLiveDot').style.display = 'inline-block';
+  document.getElementById('ssEmpty').style.display = 'none';
+  const video = document.getElementById('ssVideo');
+  video.srcObject = ssLocalStream; video.muted = true; video.style.display = 'block';
+
+  const announce = await encryptObj(state.key, {type:'ss-signal', action:'start', name: state.myName});
+  sendPayloadToPeers(announce);
+
+  // call everyone we're connected to directly
+  if(state.isHost){
+    state.conns.forEach(({conn}, connId)=>{ callPeerWithScreenShare(connId); });
+  } else if(state.hostConn){
+    callPeerWithScreenShare(state.hostConn.peer);
+  }
+
+  ssLocalStream.getVideoTracks()[0].addEventListener('ended', stopScreenShare);
+}
+function callPeerWithScreenShare(peerId){
+  if(!ssLocalStream) return;
+  const call = state.peer.call(peerId, ssLocalStream);
+  if(call) ssActiveCalls.set(peerId, call);
+}
+async function stopScreenShare(){
+  if(!ssIsSharing) return;
+  ssIsSharing = false;
+  if(ssLocalStream){ ssLocalStream.getTracks().forEach(t=>t.stop()); ssLocalStream = null; }
+  ssActiveCalls.forEach(call=>{ try{ call.close(); }catch(e){} });
+  ssActiveCalls.clear();
+  const video = document.getElementById('ssVideo');
+  video.srcObject = null; video.style.display = 'none';
+  document.getElementById('ssLiveDot').style.display = 'none';
+  document.getElementById('ssTitle').textContent = 'Screen share';
+  document.getElementById('ssEmpty').style.display = 'block';
+  const announce = await encryptObj(state.key, {type:'ss-signal', action:'stop', name: state.myName});
+  sendPayloadToPeers(announce);
+}
+function handleIncomingCall(call){
+  call.answer(); // view-only: we never send our own stream back automatically
+  call.on('stream', (remoteStream)=>{
+    const video = document.getElementById('ssVideo');
+    video.srcObject = remoteStream; video.style.display = 'block';
+    document.getElementById('ssEmpty').style.display = 'none';
+    document.getElementById('ssLiveDot').style.display = 'inline-block';
+    document.getElementById('ssTitle').textContent = (ssRemoteSharerName || 'Someone') + ' is sharing their screen';
+    openScreenShareModal();
+  });
+  call.on('close', ()=>{
+    const video = document.getElementById('ssVideo');
+    video.srcObject = null; video.style.display = 'none';
+    document.getElementById('ssLiveDot').style.display = 'none';
+    document.getElementById('ssTitle').textContent = 'Screen share';
+    document.getElementById('ssEmpty').style.display = 'block';
+  });
+}
+function handleScreenShareSignal(obj, fromConnId){
+  if(obj.action === 'start'){
+    ssRemoteSharerName = obj.name;
+  } else if(obj.action === 'stop'){
+    const video = document.getElementById('ssVideo');
+    video.srcObject = null; video.style.display = 'none';
+    document.getElementById('ssLiveDot').style.display = 'none';
+    document.getElementById('ssTitle').textContent = 'Screen share';
+    document.getElementById('ssEmpty').style.display = 'block';
+  }
+}
+
+/* ---------------- leaving + back-button / close-tab guard ---------------- */
+function confirmLeaveRoom(onConfirmed){
+  showModal({
+    title: 'Leave this room?',
+    body: "Nothing is saved — you'll need the room code and security code again to rejoin.",
+    confirmText: 'Leave', danger: true,
+    onConfirm: onConfirmed
+  });
+}
 document.getElementById('leaveBtn').addEventListener('click', ()=>{
-  if(confirm('Leave this room? Nothing will be saved.')){
+  confirmLeaveRoom(()=>{
     state.leavingIntentionally = true;
     try{ state.peer && state.peer.destroy(); }catch(e){}
     location.reload();
-  }
+  });
 });
-window.addEventListener('beforeunload', ()=>{
+
+/* In-app back button: while in the chat, pressing back shows our own themed
+   confirmation instead of silently navigating away. We push a guard state
+   onto history so the first "back" is caught by popstate; only a confirmed
+   leave lets navigation actually proceed. */
+let backGuardArmed = false;
+function armBackGuard(){
+  if(backGuardArmed) return;
+  backGuardArmed = true;
+  history.pushState({cipherGuard:true}, '');
+}
+window.addEventListener('popstate', (e)=>{
+  if(!backGuardArmed) return;
+  if(!document.body.classList.contains('chat-mode')) return;
+  // re-push immediately so the guard stays in place unless the user confirms
+  history.pushState({cipherGuard:true}, '');
+  confirmLeaveRoom(()=>{
+    state.leavingIntentionally = true;
+    try{ state.peer && state.peer.destroy(); }catch(e){}
+    backGuardArmed = false;
+    history.back(); // consume the guard state, then actually leave
+    setTimeout(()=> location.reload(), 50);
+  });
+});
+
+/* Closing the tab or refreshing still shows the browser's own built-in
+   dialog — no website can replace or restyle that one, by design, so a
+   confirmed page-unload always warns even if our custom popup was dismissed. */
+window.addEventListener('beforeunload', (e)=>{
+  if(!document.body.classList.contains('chat-mode') || state.leavingIntentionally) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+window.addEventListener('unload', ()=>{
   state.leavingIntentionally = true;
   try{ state.peer && state.peer.destroy(); }catch(e){}
 });

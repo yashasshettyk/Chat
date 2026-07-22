@@ -230,6 +230,13 @@
   .icon-btn:hover{ color:var(--accent); border-color:var(--accent); }
   .icon-btn.leave-btn:hover{ color:var(--danger); border-color:var(--danger); }
   .icon-btn.mic-on{ color:var(--online); border-color:var(--online); }
+  .icon-btn.captions-on{ color:var(--online); border-color:var(--online); }
+
+  .caption-bar{ display:flex; flex-direction:column; gap:4px; padding:0 12px; }
+  .caption-bar:empty{ display:none; }
+  .caption-row{ align-self:flex-start; max-width:88%; background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:6px 11px; font-size:13px; line-height:1.4; display:flex; gap:6px; animation:typingIn .22s cubic-bezier(.2,.8,.2,1); }
+  .caption-row .caption-name{ font-weight:600; color:var(--accent); font-family:'Space Grotesk',sans-serif; flex-shrink:0; }
+  .caption-row .caption-text{ color:var(--text); word-wrap:break-word; }
 
   .conn-banner{ display:none; align-items:center; justify-content:center; gap:8px; background:var(--surface-2); color:var(--muted); font-size:12.5px; padding:8px; border-left:1px solid var(--border); border-right:1px solid var(--border); }
   .conn-banner.active{ display:flex; }
@@ -400,8 +407,14 @@
   .ss-close{ background:rgba(255,255,255,0.1); border:none; color:#fff; width:34px; height:34px; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .ss-close.active{ background:var(--accent); color:var(--on-accent); }
   .ss-close.mic-on{ background:var(--online); color:#0a0d12; }
-  .ss-video-wrap{ flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:10px; }
+  .ss-close.captions-on{ background:var(--online); color:#0a0d12; }
+  .ss-video-wrap{ flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:10px; position:relative; }
   .ss-empty{ color:#8b93a0; font-family:'Inter',sans-serif; font-size:13.5px; text-align:center; max-width:280px; line-height:1.6; margin:auto; }
+  .ss-caption-bar{ position:absolute; left:12px; right:12px; bottom:12px; display:flex; flex-direction:column; gap:6px; align-items:center; pointer-events:none; z-index:6; }
+  .ss-caption-bar:empty{ display:none; }
+  .ss-caption-bar .caption-row{ background:rgba(10,13,18,0.78); border:1px solid rgba(255,255,255,0.12); color:#e7e9ec; max-width:min(90%,560px); }
+  .ss-caption-bar .caption-row .caption-name{ color:#8fc4f2; }
+  .ss-caption-bar .caption-row .caption-text{ color:#e7e9ec; }
   .ss-grid{ flex:1; display:none; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:12px; padding:14px; overflow-y:auto; align-content:start; }
   .ss-grid.active{ display:grid; }
   .ss-tile{ position:relative; background:#000; border-radius:12px; overflow:hidden; display:flex; align-items:center; justify-content:center; aspect-ratio:16/9; }
@@ -618,6 +631,9 @@
       <div class="icon-btn" id="micBtn" title="Turn on mic (voice chat)">
         <span class="material-symbols-outlined" style="font-size:16px;">mic_off</span>
       </div>
+      <div class="icon-btn" id="captionsBtn" title="Turn on captions (speech-to-text)">
+        <span class="material-symbols-outlined" style="font-size:16px;">closed_caption_off</span>
+      </div>
       <div class="icon-btn" id="sketchBtn" title="Sketch board">
         <span class="material-symbols-outlined" style="font-size:16px;">draw</span>
       </div>
@@ -634,6 +650,7 @@
   </div>
   <div class="conn-banner" id="connBanner"></div>
   <div class="messages" id="messages"></div>
+  <div class="caption-bar" id="captionBar"></div>
   <div class="composer">
     <button class="icon-btn attach-btn" id="attachBtn" title="Send a photo or file">
       <span class="material-symbols-outlined" style="font-size:17px;">attach_file</span>
@@ -775,12 +792,14 @@
     <div class="ss-title"><span class="ss-live-dot" id="ssLiveDot" style="display:none;"></span><span id="ssTitle">Screen share</span></div>
     <div style="display:flex; align-items:center; gap:8px;">
       <button class="ss-close" id="ssMicBtn" title="Turn on mic (voice chat)"><span class="material-symbols-outlined" style="font-size:16px;">mic_off</span></button>
+      <button class="ss-close" id="ssCaptionsBtn" title="Turn on captions (speech-to-text)"><span class="material-symbols-outlined" style="font-size:16px;">closed_caption_off</span></button>
       <button class="ss-close" id="ssCloseBtn"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
     </div>
   </div>
   <div class="ss-video-wrap">
     <div class="ss-grid" id="ssGrid"></div>
     <div class="ss-empty" id="ssEmpty">No one is sharing their screen yet. Anyone in the room can tap the screen-share icon in the header to start — everyone else sees it live, and several people can share at once.<br><br><span style="opacity:0.7;">This is view-only — for privacy and security, a browser can never let one device remote-control another's mouse, keyboard, or settings. Screen sharing just lets you see and talk someone through it.</span></div>
+    <div class="ss-caption-bar" id="ssCaptionBar"></div>
   </div>
   <div class="ss-fs-controls" id="ssFsControls">
     <button id="ssFsRotateBtn" title="Rotate view"><span class="material-symbols-outlined" style="font-size:16px;">rotate_right</span></button>
@@ -2060,6 +2079,10 @@ async function handleIncoming(raw, fromConnId){
   else if(obj.type === 'sketch-sync' && !state.isHost){
     sketchApplySync(obj);
   }
+  else if(obj.type === 'caption'){
+    renderCaption(obj.name, obj.text, obj.final);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
 }
 
 function onJoinAccepted(){
@@ -2893,6 +2916,121 @@ function removeMicIncoming(peerId){
 }
 document.getElementById('micBtn').addEventListener('click', toggleMic);
 document.getElementById('ssMicBtn').addEventListener('click', toggleMic);
+
+/* ---------------- live captions (speech-to-text) ----------------
+   Entirely local: runs the browser's own SpeechRecognition on your own
+   mic (independent of the voice-chat mic stream above — recognition needs
+   its own getUserMedia grant and can run whether or not voice chat is on).
+   Nothing audio ever leaves your device; only the resulting text is sent,
+   the same star-topology broadcast as typing indicators (send to host,
+   host relays to everyone else). Each speaker gets one caption line that
+   updates live as interim results come in and clears itself a few seconds
+   after their sentence finishes. */
+let captionsOn = false;
+let captionRecognition = null;
+let captionEls = new Map(); // name -> {mainEl, ssEl, timeout}
+
+function canUseCaptions(){
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+function setCaptionButtonsState(on){
+  [document.getElementById('captionsBtn'), document.getElementById('ssCaptionsBtn')].forEach(btn=>{
+    if(!btn) return;
+    btn.classList.toggle('captions-on', on);
+    btn.title = on ? 'Turn off captions' : 'Turn on captions (speech-to-text)';
+    const icon = btn.querySelector('.material-symbols-outlined');
+    if(icon) icon.textContent = on ? 'closed_caption' : 'closed_caption_off';
+  });
+  renderIcons();
+}
+function toggleCaptions(){
+  if(captionsOn){ stopCaptions(); return; }
+  if(!canUseCaptions()){
+    addMessage({system:true, text:"This browser doesn't support live captions (speech-to-text)."});
+    return;
+  }
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new Recognition();
+  rec.continuous = true;
+  rec.interimResults = true;
+  try{ rec.lang = navigator.language || 'en-US'; }catch(e){}
+  rec.onresult = (e)=>{
+    let text = '';
+    let isFinal = false;
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      text += e.results[i][0].transcript;
+      if(e.results[i].isFinal) isFinal = true;
+    }
+    text = text.trim();
+    if(!text) return;
+    renderCaption(state.myName, text, isFinal);
+    sendCaptionPayload(text, isFinal);
+  };
+  rec.onerror = (e)=>{
+    if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+      addMessage({system:true, text:'Microphone access was blocked. Allow mic access in your browser settings to use captions.'});
+      stopCaptions();
+    }
+    // other errors (e.g. 'no-speech') are routine — onend below restarts it
+  };
+  rec.onend = ()=>{
+    if(captionsOn){ try{ rec.start(); }catch(err){} }
+  };
+  try{ rec.start(); }
+  catch(e){ addMessage({system:true, text:"Couldn't start captions."}); return; }
+  captionRecognition = rec;
+  captionsOn = true;
+  setCaptionButtonsState(true);
+}
+function stopCaptions(){
+  captionsOn = false;
+  setCaptionButtonsState(false);
+  if(captionRecognition){
+    try{ captionRecognition.onend = null; captionRecognition.stop(); }catch(e){}
+    captionRecognition = null;
+  }
+  clearCaption(state.myName);
+}
+async function sendCaptionPayload(text, final){
+  if(!state.key) return;
+  const payload = await encryptObj(state.key, {type:'caption', name: state.myName, text, final});
+  sendPayloadToPeers(payload);
+}
+function makeCaptionRow(){
+  const row = document.createElement('div');
+  row.className = 'caption-row';
+  row.innerHTML = `<span class="caption-name"></span><span class="caption-text"></span>`;
+  return row;
+}
+function renderCaption(name, text, final){
+  if(!name || !text) return;
+  let entry = captionEls.get(name);
+  if(!entry){
+    entry = { mainEl: makeCaptionRow(), ssEl: makeCaptionRow(), timeout: null };
+    captionEls.set(name, entry);
+    const mainBar = document.getElementById('captionBar');
+    const ssBar = document.getElementById('ssCaptionBar');
+    if(mainBar) mainBar.appendChild(entry.mainEl);
+    if(ssBar) ssBar.appendChild(entry.ssEl);
+  }
+  const label = (name === state.myName ? 'You' : name) + ':';
+  [entry.mainEl, entry.ssEl].forEach(el=>{
+    el.querySelector('.caption-name').textContent = label;
+    el.querySelector('.caption-text').textContent = text;
+  });
+  clearTimeout(entry.timeout);
+  if(final){ entry.timeout = setTimeout(()=> clearCaption(name), 4000); }
+}
+function clearCaption(name){
+  const entry = captionEls.get(name);
+  if(!entry) return;
+  clearTimeout(entry.timeout);
+  entry.mainEl.remove();
+  entry.ssEl.remove();
+  captionEls.delete(name);
+}
+document.getElementById('captionsBtn').addEventListener('click', toggleCaptions);
+document.getElementById('ssCaptionsBtn').addEventListener('click', toggleCaptions);
 
 /* ==================== live sketch board ====================
    Everyone's strokes are kept in a shared, ever-growing list of stroke

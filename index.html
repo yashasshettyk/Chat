@@ -602,6 +602,7 @@
   .sketch-canvas-inner{ position:relative; box-shadow:0 0 0 1px rgba(255,255,255,0.08), 0 20px 60px -20px rgba(0,0,0,0.6); }
   #sketchCanvas{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:crosshair; }
   .sketch-shape-preview{ position:absolute; inset:0; pointer-events:none; }
+  .sketch-text-input{ position:absolute; z-index:8; background:transparent; border:1.5px dashed rgba(255,255,255,0.55); border-radius:4px; padding:2px 4px; outline:none; font-family:'Space Grotesk',sans-serif; min-width:40px; }
 
   /* ---------- mobile: full-screen chat, WhatsApp-style ---------- */
   @media (max-width:700px){
@@ -761,7 +762,7 @@
       <span class="material-symbols-outlined" style="font-size:17px;">attach_file</span>
     </button>
     <input type="file" id="fileInput" multiple style="display:none">
-    <input type="text" id="msgInput" placeholder="Type a message…" maxlength="1000">
+    <input type="text" id="msgInput" placeholder="Type a message…" maxlength="1000" name="chatMessage" autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
     <button class="send-btn" id="sendBtn">
       <span class="material-symbols-outlined" style="font-size:18px;">send</span>
     </button>
@@ -793,7 +794,7 @@
   <select class="font-select" id="fontSelect"></select>
   <div class="appearance-apply-row">
     <button class="btn btn-ghost" id="applyThemeMe">Apply for me</button>
-    <button class="btn btn-primary" id="applyThemeEveryone">Apply for everyone</button>
+    <button class="btn btn-primary" id="applyThemeEveryone" title="Apply for everyone">Apply</button>
   </div>
 </div>
 
@@ -954,6 +955,9 @@
       <button class="sketch-tool-btn" id="sketchFillBtn" title="Fill shapes">
         <span class="material-symbols-outlined" style="font-size:16px;">format_color_fill</span>
       </button>
+      <button class="sketch-tool-btn" id="sketchTextBtn" title="Add text">
+        <span class="material-symbols-outlined" style="font-size:16px;">title</span>
+      </button>
       <button class="sketch-tool-btn" id="sketchSelectBtn" title="Select / move / resize">
         <span class="material-symbols-outlined" style="font-size:16px;">open_with</span>
       </button>
@@ -973,6 +977,9 @@
       <div class="sketch-sep"></div>
       <div class="sketch-colors" id="sketchBgColors" title="Board background"></div>
       <div class="sketch-sep"></div>
+      <button class="sketch-tool-btn" id="sketchUndoBtn" title="Undo your last stroke">
+        <span class="material-symbols-outlined" style="font-size:16px;">undo</span>
+      </button>
       <button class="sketch-tool-btn" id="sketchClearBtn" title="Clear board">
         <span class="material-symbols-outlined" style="font-size:16px;">delete_forever</span>
       </button>
@@ -2310,6 +2317,14 @@ async function handleIncoming(raw, fromConnId){
     sketchApplyBg(obj);
     if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
   }
+  else if(obj.type === 'sketch-undo'){
+    sketchApplyUndo(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-text'){
+    sketchApplyText(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
   else if(obj.type === 'sketch-sync' && !state.isHost){
     sketchApplySync(obj);
   }
@@ -3610,8 +3625,12 @@ let sketchColor = SKETCH_COLORS[0];
 let sketchBgColor = SKETCH_BG_COLORS[0];
 let sketchSize = 4;
 let sketchEraser = false;
-let sketchTool = 'pen';           // 'pen' | 'line' | 'rect' | 'ellipse' | 'select'
+let sketchTool = 'pen';           // 'pen' | 'line' | 'rect' | 'ellipse' | 'select' | 'text'
 let sketchFill = false;
+let sketchMyStrokeIds = [];       // ids of strokes/shapes/text *I* created, in order —
+                                   // powers "undo my last stroke" without touching
+                                   // anything someone else drew
+let sketchTextEditor = null;      // the live <textarea> overlay while typing a text box
 let shapeStart = null;            // start point while dragging a shape tool
 let localStroke = null;           // the freehand stroke currently being drawn by me
 let sketchPendingPts = [];        // points drawn locally since the last network flush
@@ -3695,8 +3714,32 @@ function drawShape(stroke, ctx, w, h){
   }
   ctx.restore();
 }
+function sketchFontPx(stroke){ return Math.max(12, stroke.size * 5); }
+function drawTextStroke(stroke, ctx, w, h){
+  const x = stroke.p[0]*w, y = stroke.p[1]*h;
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = stroke.color;
+  ctx.font = sketchFontPx(stroke) + 'px "Space Grotesk", sans-serif';
+  ctx.textBaseline = 'top';
+  (stroke.text || '').split('\n').forEach((line, i)=>{
+    ctx.fillText(line, x, y + i * sketchFontPx(stroke) * 1.25);
+  });
+  ctx.restore();
+}
+function measureTextStroke(stroke){
+  const canvas = sketchCanvasEl();
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.font = sketchFontPx(stroke) + 'px "Space Grotesk", sans-serif';
+  const lines = (stroke.text || '').split('\n');
+  const w = Math.max(1, ...lines.map(l=> ctx.measureText(l).width));
+  ctx.restore();
+  return [w, lines.length * sketchFontPx(stroke) * 1.25];
+}
 function drawStrokeFull(stroke, ctx, w, h){
   if(stroke.type === 'shape'){ drawShape(stroke, ctx, w, h); return; }
+  if(stroke.type === 'text'){ drawTextStroke(stroke, ctx, w, h); return; }
   if(!stroke.pts.length) return;
   ctx.save();
   strokeStyle(ctx, stroke);
@@ -3795,6 +3838,36 @@ function sketchApplyBg(obj){
   document.getElementById('sketchCanvasInner').style.background = sketchBgColor;
   renderSketchBgColors();
 }
+function sketchApplyText(obj){
+  if(sketchById.has(obj.id)) return;
+  const stroke = { id:obj.id, type:'text', p:obj.p, text:obj.text, color:obj.color, size:obj.size, name:obj.name };
+  sketchStrokes.push(stroke);
+  sketchById.set(obj.id, stroke);
+  if(sketchModalOpen()) drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
+}
+function removeStrokeById(id){
+  const idx = sketchStrokes.findIndex(s=> s.id === id);
+  if(idx === -1) return false;
+  sketchStrokes.splice(idx, 1);
+  sketchById.delete(id);
+  if(selectedStrokeId === id) clearSketchSelection();
+  return true;
+}
+function sketchApplyUndo(obj){
+  if(!obj || !obj.id) return;
+  if(removeStrokeById(obj.id)) redrawSketch();
+}
+function undoMyLastStroke(){
+  if(!sketchMyStrokeIds.length) return;
+  const id = sketchMyStrokeIds.pop();
+  if(removeStrokeById(id)){
+    redrawSketch();
+    sendSketchPayload({type:'sketch-undo', id});
+  } else {
+    // stroke was already gone (e.g. cleared, or undone from another tab) — skip it
+    undoMyLastStroke();
+  }
+}
 function updateShapePreview(p0, p1){
   const svg = document.getElementById('sketchShapePreview');
   const [w,h] = sketchCssSize();
@@ -3826,6 +3899,11 @@ function getStrokeBBox(stroke){
       Math.min(stroke.p0[0], stroke.p1[0]), Math.min(stroke.p0[1], stroke.p1[1]),
       Math.max(stroke.p0[0], stroke.p1[0]), Math.max(stroke.p0[1], stroke.p1[1])
     ];
+  }
+  if(stroke.type === 'text'){
+    const [w,h] = sketchCssSize();
+    const [tw,th] = measureTextStroke(stroke);
+    return [stroke.p[0], stroke.p[1], stroke.p[0] + tw/w, stroke.p[1] + th/h];
   }
   let minX=1, minY=1, maxX=0, maxY=0;
   (stroke.pts||[]).forEach(([x,y])=>{
@@ -3877,9 +3955,9 @@ function pointInStrokeBBox(pt, stroke){
   return pt[0] >= minX && pt[0] <= maxX && pt[1] >= minY && pt[1] <= maxY;
 }
 function deepCopyGeometry(stroke){
-  return stroke.type === 'shape'
-    ? { p0:[...stroke.p0], p1:[...stroke.p1] }
-    : { pts: stroke.pts.map(p=>[...p]) };
+  if(stroke.type === 'shape') return { p0:[...stroke.p0], p1:[...stroke.p1] };
+  if(stroke.type === 'text') return { p:[...stroke.p] };
+  return { pts: stroke.pts.map(p=>[...p]) };
 }
 function applySelectDrag(pt){
   const stroke = selectedStroke();
@@ -3889,10 +3967,12 @@ function applySelectDrag(pt){
     if(stroke.type === 'shape'){
       stroke.p0 = [selectDragSnapshot.p0[0] + dx, selectDragSnapshot.p0[1] + dy];
       stroke.p1 = [selectDragSnapshot.p1[0] + dx, selectDragSnapshot.p1[1] + dy];
+    } else if(stroke.type === 'text'){
+      stroke.p = [selectDragSnapshot.p[0] + dx, selectDragSnapshot.p[1] + dy];
     } else {
       stroke.pts = selectDragSnapshot.pts.map(([x,y])=> [x + dx, y + dy]);
     }
-  } else {
+  } else if(stroke.type !== 'text') {
     // Resizing from one corner, keeping the opposite corner anchored.
     const orig = stroke.type === 'shape'
       ? [Math.min(selectDragSnapshot.p0[0],selectDragSnapshot.p1[0]), Math.min(selectDragSnapshot.p0[1],selectDragSnapshot.p1[1]),
@@ -3919,9 +3999,10 @@ function applySelectDrag(pt){
 function sendSelectTransform(){
   const stroke = selectedStroke();
   if(!stroke) return;
-  const payload = stroke.type === 'shape'
-    ? {type:'sketch-transform', id: stroke.id, p0: stroke.p0, p1: stroke.p1}
-    : {type:'sketch-transform', id: stroke.id, pts: stroke.pts};
+  let payload;
+  if(stroke.type === 'shape') payload = {type:'sketch-transform', id: stroke.id, p0: stroke.p0, p1: stroke.p1};
+  else if(stroke.type === 'text') payload = {type:'sketch-transform', id: stroke.id, p: stroke.p};
+  else payload = {type:'sketch-transform', id: stroke.id, pts: stroke.pts};
   sendSketchPayload(payload);
 }
 function clearSketchSelection(){
@@ -3936,6 +4017,7 @@ function sketchApplyTransform(obj){
   if(!stroke) return;
   if(obj.p0 && obj.p1){ stroke.p0 = obj.p0; stroke.p1 = obj.p1; }
   if(obj.pts){ stroke.pts = obj.pts; }
+  if(obj.p){ stroke.p = obj.p; }
   redrawSketch();
   if(selectedStrokeId === obj.id) renderSelectionOverlay();
 }

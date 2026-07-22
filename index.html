@@ -377,6 +377,21 @@
   .ss-rotate-btn:hover{ background:rgba(0,0,0,0.75); }
   .ss-tile.mine{ outline:2px solid rgba(255,255,255,0.25); }
 
+  /* ---------- sketch board ---------- */
+  .sketch-modal{ position:fixed; inset:0; background:#12161d; display:none; z-index:130; flex-direction:column; }
+  .sketch-modal.active{ display:flex; }
+  .sketch-toolbar{ display:flex; align-items:center; gap:12px; padding:10px 14px; background:#181c24; flex-wrap:wrap; padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
+  .sketch-colors{ display:flex; gap:7px; align-items:center; }
+  .sketch-swatch{ width:24px; height:24px; border-radius:50%; border:2px solid rgba(255,255,255,0.18); cursor:pointer; flex-shrink:0; padding:0; }
+  .sketch-swatch.active{ border-color:#fff; transform:scale(1.18); }
+  .sketch-sep{ width:1px; align-self:stretch; background:rgba(255,255,255,0.12); }
+  .sketch-tool-btn{ background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); color:#e7e9ec; width:34px; height:34px; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .sketch-tool-btn.active{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+  .sketch-size-row{ display:flex; align-items:center; gap:7px; color:#8b93a0; font-size:11.5px; font-family:'Space Grotesk',sans-serif; }
+  #sketchSize{ width:80px; accent-color:var(--accent); }
+  .sketch-canvas-wrap{ flex:1; position:relative; background:#ffffff; overflow:hidden; touch-action:none; }
+  #sketchCanvas{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:crosshair; }
+
   /* ---------- mobile: full-screen chat, WhatsApp-style ---------- */
   @media (max-width:700px){
     .app{ padding:0 4px; }
@@ -496,6 +511,9 @@
       </div>
     </div>
     <div class="header-right">
+      <div class="icon-btn" id="sketchBtn" title="Sketch board">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+      </div>
       <div class="icon-btn" id="screenShareBtn" title="Screen share">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
       </div>
@@ -637,7 +655,7 @@
     </div>
     <div class="modal-title" id="modalTitle">Are you sure?</div>
     <p class="modal-body" id="modalBody">This action cannot be undone.</p>
-    <div class="modal-actions">
+    <div class="modal-actions" id="modalActions">
       <button class="btn btn-ghost" id="modalCancelBtn" style="flex:1; margin-top:0;">Cancel</button>
       <button class="btn btn-primary" id="modalConfirmBtn" style="flex:1;">Confirm</button>
     </div>
@@ -653,6 +671,32 @@
   <div class="ss-video-wrap">
     <div class="ss-grid" id="ssGrid"></div>
     <div class="ss-empty" id="ssEmpty">No one is sharing their screen yet. Anyone in the room can tap the screen-share icon in the header to start — everyone else sees it live, and several people can share at once.<br><br><span style="opacity:0.7;">This is view-only — for privacy and security, a browser can never let one device remote-control another's mouse, keyboard, or settings. Screen sharing just lets you see and talk someone through it.</span></div>
+  </div>
+</div>
+
+<!-- Live sketch board -->
+<div class="sketch-modal" id="sketchModal">
+  <div class="ss-header">
+    <div class="ss-title"><span id="sketchTitle">Sketch board</span></div>
+    <button class="ss-close" id="sketchCloseBtn">✕</button>
+  </div>
+  <div class="sketch-canvas-wrap">
+    <canvas id="sketchCanvas"></canvas>
+  </div>
+  <div class="sketch-toolbar">
+    <div class="sketch-colors" id="sketchColors"></div>
+    <div class="sketch-sep"></div>
+    <button class="sketch-tool-btn" id="sketchEraserBtn" title="Eraser">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H8l-6-6a2 2 0 010-2.8L13.2 2 22 10.8 12.8 20"/><path d="M6.5 12.5L14 20"/></svg>
+    </button>
+    <div class="sketch-size-row">
+      <span>Size</span>
+      <input type="range" id="sketchSize" min="2" max="24" value="4">
+    </div>
+    <div class="sketch-sep"></div>
+    <button class="sketch-tool-btn" id="sketchClearBtn" title="Clear board">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+    </button>
   </div>
 </div>
 
@@ -786,6 +830,7 @@ document.getElementById('openAppearanceFromMenu').addEventListener('click', ()=>
 /* ---------------- themed modal helper (replaces confirm()/alert()) ---------------- */
 function showModal({title, body, confirmText='Confirm', cancelText='Cancel', danger=false, onConfirm, hideCancel=false}){
   const backdrop = document.getElementById('modalBackdrop');
+  document.getElementById('modalActions').style.display = 'flex';
   document.getElementById('modalTitle').textContent = title || 'Are you sure?';
   document.getElementById('modalBody').textContent = body || '';
   const confirmBtn = document.getElementById('modalConfirmBtn');
@@ -856,9 +901,35 @@ function scrollMessagesToBottom(){
   const box = document.getElementById('messages');
   requestAnimationFrame(()=>{ box.scrollTop = box.scrollHeight; });
 }
+
+/* iOS Safari has a long-standing quirk: even though our layout is sized to
+   visualViewport and body.chat-mode has overflow:hidden, focusing a text
+   input still makes Safari auto-scroll the *layout* viewport to "reveal"
+   it — which visibly drags the whole fixed-position chat UI upward,
+   sometimes leaving blank space under the composer. Since we already keep
+   the composer pinned to the visible area ourselves (via --app-height),
+   that native auto-scroll is never actually needed, so while the message
+   input is focused we just cancel it out every time it happens. */
+let composerFocused = false;
+function pinWindowScroll(){
+  if(!composerFocused) return;
+  if(window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+  document.getElementById('viewportRoot').scrollTop = 0;
+}
+window.addEventListener('scroll', pinWindowScroll, {passive:true});
+if(window.visualViewport){
+  window.visualViewport.addEventListener('scroll', pinWindowScroll);
+}
 document.getElementById('msgInput').addEventListener('focus', ()=>{
+  composerFocused = true;
+  // Safari's auto-scroll-into-view kicks in a beat after focus fires (and
+  // again as the keyboard finishes animating in), so keep correcting for
+  // a short window rather than just once.
+  let n = 0;
+  const iv = setInterval(()=>{ pinWindowScroll(); if(++n > 12) clearInterval(iv); }, 60);
   setTimeout(scrollMessagesToBottom, 300);
 });
+document.getElementById('msgInput').addEventListener('blur', ()=>{ composerFocused = false; });
 
 /* ---------------- crypto ---------------- */
 async function deriveKey(roomCode, securityCode){
@@ -903,7 +974,9 @@ let state = {
   members:new Map(),
   leavingIntentionally:false,
   requireApproval:true,
-  pendingApprovals:new Map() // host only: connId -> conn (waiting for allow/reject)
+  pendingApprovals:new Map(), // host only: connId -> conn (waiting for allow/reject)
+  hostClosingReceived:false, // joiner only: host told us it's closing before the conn dropped
+  hostGoneShown:false
 };
 let secVisible = false;
 let reconnectAttempts = 0;
@@ -1506,6 +1579,7 @@ async function resolveJoinRequest(connId, allowed){
   if(entry && entry.conn.open){
     const payload = await encryptObj(state.key, {type: allowed ? 'join-accepted' : 'join-rejected'});
     entry.conn.send(payload);
+    if(allowed) await sendSketchSyncTo(connId);
   }
   if(allowed && entry){
     state.members.set(connId, entry.pendingName);
@@ -1541,7 +1615,7 @@ async function handleIncoming(raw, fromConnId){
     }
     if(reconnecting){ clearTimeout(pendingLeaves.get(obj.name)); pendingLeaves.delete(obj.name); }
     const payload = await encryptObj(state.key, {type:'join-accepted'});
-    if(entry && entry.conn.open) entry.conn.send(payload);
+    if(entry && entry.conn.open){ entry.conn.send(payload); await sendSketchSyncTo(fromConnId); }
     state.members.set(fromConnId, obj.name);
     addMessage({system:true, text: obj.name + (reconnecting ? ' reconnected' : ' joined the room')});
     await broadcastRoster();
@@ -1618,6 +1692,28 @@ async function handleIncoming(raw, fromConnId){
   else if(obj.type === 'ss-signal'){
     handleScreenShareSignal(obj, fromConnId);
     if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'host_closing' && !state.isHost){
+    state.hostClosingReceived = true;
+  }
+  else if(obj.type === 'sketch-start'){
+    sketchApplyStart(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-point'){
+    sketchApplyPoints(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-end'){
+    sketchApplyEnd(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-clear'){
+    sketchApplyClear(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-sync' && !state.isHost){
+    sketchApplySync(obj);
   }
 }
 
@@ -1837,6 +1933,7 @@ function connectToHost(isInitial){
   conn.on('open', async ()=>{
     if(initialFailTimer) clearTimeout(initialFailTimer);
     reconnectAttempts = 0;
+    state.hostClosingReceived = false;
     hideReconnectBanner();
     const payload = await encryptObj(state.key, {type:'join', name: state.myName});
     conn.send(payload);
@@ -1868,14 +1965,42 @@ function connectToHost(isInitial){
   });
 }
 
+/* We only reconnect to one place — the host. So for a joiner, "can't
+   reach the host" and "the host stopped/left the room" are the same
+   underlying event; we can't always tell them apart the instant the
+   connection drops (e.g. briefly backgrounding the tab shouldn't count).
+   So: show "Reconnecting…" for a bit and keep retrying; only once retries
+   are exhausted (or the host explicitly told us it's closing) do we treat
+   it as the host being gone. */
+const MAX_RECONNECT_ATTEMPTS = 6;
+let reconnectBannerTimer = null;
 function scheduleReconnect(){
-  if(state.leavingIntentionally) return;
+  if(state.leavingIntentionally || state.hostGoneShown) return;
   document.getElementById('sendBtn').disabled = true;
   document.getElementById('msgInput').disabled = true;
   document.getElementById('attachBtn').disabled = true;
-  if(reconnectAttempts >= 8){ showDisconnectedBanner(); return; }
-  showReconnectBanner();
-  const delay = Math.min(1000 * Math.pow(1.6, reconnectAttempts), 15000);
+
+  // Debounce: a real disconnect stays down for more than a moment, so only
+  // flash the "Reconnecting…" banner if we're still down ~700ms later —
+  // this avoids a spurious flicker for quick blips like switching tabs.
+  clearTimeout(reconnectBannerTimer);
+  reconnectBannerTimer = setTimeout(()=>{
+    if(!state.leavingIntentionally && !state.hostGoneShown) showReconnectBanner();
+  }, 700);
+
+  if(state.hostClosingReceived){
+    // The host told us before it went away — give it one short beat in
+    // case this was just a network hiccup, then treat it as final.
+    if(reconnectAttempts === 0){
+      reconnectAttempts++;
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(showHostGoneCountdown, 1800);
+    }
+    return;
+  }
+
+  if(reconnectAttempts >= MAX_RECONNECT_ATTEMPTS){ showHostGoneCountdown(); return; }
+  const delay = Math.min(1000 * Math.pow(1.7, reconnectAttempts), 6000);
   reconnectAttempts++;
   clearTimeout(reconnectTimer);
   reconnectTimer = setTimeout(()=> connectToHost(false), delay);
@@ -1887,16 +2012,42 @@ function showReconnectBanner(){
   b.classList.add('active');
   b.onclick = null;
 }
-function showDisconnectedBanner(){
-  const b = document.getElementById('connBanner');
-  b.textContent = 'Disconnected — tap to retry';
-  b.classList.add('active','retry');
-  b.onclick = ()=>{ reconnectAttempts = 0; connectToHost(false); };
-}
 function hideReconnectBanner(){
+  clearTimeout(reconnectBannerTimer);
   const b = document.getElementById('connBanner');
   b.classList.remove('active','retry');
   b.onclick = null;
+}
+
+/* ---------------- host stopped / left the room (joiner only) ---------------- */
+function showHostGoneCountdown(){
+  if(state.isHost || state.hostGoneShown || state.leavingIntentionally) return;
+  state.hostGoneShown = true;
+  state.leavingIntentionally = true; // stop any further reconnect attempts
+  clearTimeout(reconnectTimer);
+  clearTimeout(reconnectBannerTimer);
+  hideReconnectBanner();
+
+  const backdrop = document.getElementById('modalBackdrop');
+  document.getElementById('modalIcon').className = 'modal-icon danger';
+  document.getElementById('modalTitle').textContent = 'Host stopped the room';
+  const bodyEl = document.getElementById('modalBody');
+  // No buttons — this can't be dismissed or cancelled, it just exits.
+  document.getElementById('modalActions').style.display = 'none';
+  backdrop.classList.add('active');
+
+  let n = 3;
+  bodyEl.textContent = 'Exiting in ' + n + '…';
+  const countdown = setInterval(()=>{
+    n--;
+    if(n <= 0){
+      clearInterval(countdown);
+      try{ state.peer && state.peer.destroy(); }catch(e){}
+      location.reload();
+      return;
+    }
+    bodyEl.textContent = 'Exiting in ' + n + '…';
+  }, 1000);
 }
 
 /* ---------------- sending messages ---------------- */
@@ -2095,7 +2246,24 @@ function resolvePeerName(peerId){
 
 function openScreenShareModal(){ document.getElementById('screenShareModal').classList.add('active'); }
 function closeScreenShareModal(){ document.getElementById('screenShareModal').classList.remove('active'); }
+function canBroadcastScreen(){
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+}
 document.getElementById('screenShareBtn').addEventListener('click', async ()=>{
+  if(!ssIsSharing && !canBroadcastScreen()){
+    // Most mobile browsers (iOS Safari, and most Android browsers by
+    // default) simply don't expose an API for a page to broadcast the
+    // device's own screen — it's an OS/browser restriction, not a bug in
+    // this app, and there's no workaround from web code. Say so clearly
+    // instead of silently doing nothing. Viewing others' shares still
+    // works fine on mobile.
+    showModal({
+      title: "Can't share your screen from this device",
+      body: "Mobile browsers don't let a webpage broadcast the phone's own screen — that's a device/browser restriction, not something this app can turn on. You can still watch anyone else's screen share from here, or open this room on a laptop/desktop browser to share yours.",
+      confirmText: 'Got it', hideCancel: true
+    });
+    return;
+  }
   openScreenShareModal();
   if(!ssIsSharing) await startScreenShare();
 });
@@ -2157,14 +2325,22 @@ function applyTileRotation(entry){
 }
 
 async function startScreenShare(){
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){
-    addMessage({system:true, text:"Your browser doesn't support screen sharing."});
+  if(!canBroadcastScreen()){
+    addMessage({system:true, text:"This browser doesn't support screen sharing."});
+    closeScreenShareModal();
     return;
   }
   try{
     ssLocalStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false});
   } catch(e){
-    return; // user cancelled the picker
+    // NotAllowedError covers both "user cancelled the picker" and
+    // "permission actually denied" — browsers don't distinguish these for
+    // privacy reasons, so there's nothing more specific to say either way.
+    if(e && e.name && e.name !== 'NotAllowedError' && e.name !== 'AbortError'){
+      addMessage({system:true, text:"Couldn't start screen sharing: " + e.name + '.'});
+    }
+    if(ssTiles.size === 0) closeScreenShareModal();
+    return;
   }
   ssIsSharing = true;
   const tile = createTile('me', state.myName, true);
@@ -2215,6 +2391,260 @@ function handleScreenShareSignal(obj, fromConnId){
   }
 }
 
+/* ==================== live sketch board ====================
+   Everyone's strokes are kept in a shared, ever-growing list of stroke
+   objects (id, color, size, erase flag, and a list of normalized [x,y]
+   points). Points are 0..1 fractions of the canvas, not pixels, so the
+   board lines up the same way regardless of each person's screen size.
+
+   Sync follows the same star-topology pattern as chat: a joiner sends its
+   own strokes to the host, the host applies them locally and relays to
+   everyone else. The host also keeps the full stroke list as the source of
+   truth and pushes a one-time 'sketch-sync' to anyone who joins mid-session,
+   so latecomers see everything drawn so far. */
+const SKETCH_COLORS = ['#1c2733','#e0575c','#2f8fdd','#3fae5c','#f0a63e','#8b6fd9','#e8618c','#ffffff'];
+let sketchStrokes = [];           // ordered list of {id,color,size,erase,name,pts,done}
+let sketchById = new Map();       // id -> stroke, for fast lookup while drawing
+let sketchColor = SKETCH_COLORS[0];
+let sketchSize = 4;
+let sketchEraser = false;
+let localStroke = null;           // the stroke currently being drawn by me
+let sketchPendingPts = [];        // points drawn locally since the last network flush
+let sketchFlushRAF = null;
+let sketchResizeBound = false;
+
+function sketchModalOpen(){ return document.getElementById('sketchModal').classList.contains('active'); }
+function sketchCanvasEl(){ return document.getElementById('sketchCanvas'); }
+function sketchCtx(){ return sketchCanvasEl().getContext('2d'); }
+function sketchCssSize(){
+  const c = sketchCanvasEl();
+  return [c.clientWidth || 1, c.clientHeight || 1];
+}
+
+function resizeSketchCanvas(){
+  const canvas = sketchCanvasEl();
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = Math.max(1, Math.round(w * dpr));
+  canvas.height = Math.max(1, Math.round(h * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  redrawSketch();
+}
+
+function strokeStyle(ctx, stroke){
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.globalCompositeOperation = stroke.erase ? 'destination-out' : 'source-over';
+  ctx.strokeStyle = stroke.color;
+  ctx.fillStyle = stroke.color;
+  ctx.lineWidth = stroke.size;
+}
+function drawStrokeFull(stroke, ctx, w, h){
+  if(!stroke.pts.length) return;
+  ctx.save();
+  strokeStyle(ctx, stroke);
+  if(stroke.pts.length === 1){
+    const [x,y] = stroke.pts[0];
+    ctx.beginPath();
+    ctx.arc(x*w, y*h, stroke.size/2, 0, Math.PI*2);
+    ctx.fill();
+  } else {
+    ctx.beginPath();
+    stroke.pts.forEach((p,i)=>{
+      const x = p[0]*w, y = p[1]*h;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawSegment(stroke, from, to){
+  if(!sketchModalOpen()) return;
+  const [w,h] = sketchCssSize();
+  const ctx = sketchCtx();
+  ctx.save();
+  strokeStyle(ctx, stroke);
+  ctx.beginPath();
+  ctx.moveTo(from[0]*w, from[1]*h);
+  ctx.lineTo(to[0]*w, to[1]*h);
+  ctx.stroke();
+  ctx.restore();
+}
+function redrawSketch(){
+  if(!sketchModalOpen()) return;
+  const [w,h] = sketchCssSize();
+  const ctx = sketchCtx();
+  ctx.clearRect(0,0,w,h);
+  sketchStrokes.forEach(s=> drawStrokeFull(s, ctx, w, h));
+}
+
+/* ---- applying remote (or synced) events ---- */
+function sketchApplyStart(obj){
+  if(sketchById.has(obj.id)) return;
+  const stroke = { id:obj.id, color:obj.color, size:obj.size, erase:!!obj.erase, name:obj.name, pts:[[obj.x,obj.y]], done:false };
+  sketchStrokes.push(stroke);
+  sketchById.set(obj.id, stroke);
+  if(sketchModalOpen()) drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
+}
+function sketchApplyPoints(obj){
+  const stroke = sketchById.get(obj.id);
+  if(!stroke || !obj.pts) return;
+  obj.pts.forEach(pt=>{
+    const prev = stroke.pts[stroke.pts.length - 1];
+    stroke.pts.push(pt);
+    if(prev) drawSegment(stroke, prev, pt);
+  });
+}
+function sketchApplyEnd(obj){
+  const stroke = sketchById.get(obj.id);
+  if(stroke) stroke.done = true;
+}
+function sketchApplyClear(obj){
+  sketchStrokes = [];
+  sketchById.clear();
+  if(sketchModalOpen()){
+    const [w,h] = sketchCssSize();
+    sketchCtx().clearRect(0,0,w,h);
+  }
+  if(obj && obj.name) addMessage({system:true, text:(obj.name===state.myName ? 'You' : obj.name) + ' cleared the sketch board'});
+}
+function sketchApplySync(obj){
+  sketchStrokes = obj.strokes || [];
+  sketchById = new Map(sketchStrokes.map(s=>[s.id, s]));
+  redrawSketch();
+}
+async function sendSketchSyncTo(connId){
+  if(!state.isHost) return;
+  const entry = state.conns.get(connId);
+  if(!entry || !entry.conn.open || sketchStrokes.length === 0) return;
+  const payload = await encryptObj(state.key, {type:'sketch-sync', strokes: sketchStrokes});
+  entry.conn.send(payload);
+}
+
+/* ---- my own drawing input ---- */
+async function sendSketchPayload(obj){
+  const payload = await encryptObj(state.key, obj);
+  sendPayloadToPeers(payload);
+}
+function getNormPoint(e){
+  const canvas = sketchCanvasEl();
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  const y = (e.clientY - rect.top) / rect.height;
+  return [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))];
+}
+function currentStrokeColorAndSize(){
+  return sketchEraser
+    ? { color:'#000000', size: Math.max(sketchSize * 2, 14) }
+    : { color: sketchColor, size: sketchSize };
+}
+function sketchPointerDown(e){
+  e.preventDefault();
+  const canvas = sketchCanvasEl();
+  try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+  const pt = getNormPoint(e);
+  const {color, size} = currentStrokeColorAndSize();
+  const id = state.myId + '-' + Date.now() + '-' + Math.floor(Math.random()*1e6);
+  localStroke = { id, color, size, erase: sketchEraser, name: state.myName, pts:[pt], done:false };
+  sketchStrokes.push(localStroke);
+  sketchById.set(id, localStroke);
+  drawStrokeFull(localStroke, sketchCtx(), ...sketchCssSize());
+  sketchPendingPts = [];
+  sendSketchPayload({type:'sketch-start', id, color, size, erase: sketchEraser, name: state.myName, x: pt[0], y: pt[1]});
+}
+function sketchPointerMove(e){
+  if(!localStroke) return;
+  e.preventDefault();
+  const pt = getNormPoint(e);
+  const prev = localStroke.pts[localStroke.pts.length - 1];
+  localStroke.pts.push(pt);
+  drawSegment(localStroke, prev, pt);
+  sketchPendingPts.push(pt);
+  if(!sketchFlushRAF){
+    sketchFlushRAF = requestAnimationFrame(()=>{
+      sketchFlushRAF = null;
+      if(sketchPendingPts.length && localStroke){
+        sendSketchPayload({type:'sketch-point', id: localStroke.id, pts: sketchPendingPts});
+        sketchPendingPts = [];
+      }
+    });
+  }
+}
+function sketchPointerUp(e){
+  if(!localStroke) return;
+  if(sketchPendingPts.length){
+    sendSketchPayload({type:'sketch-point', id: localStroke.id, pts: sketchPendingPts});
+    sketchPendingPts = [];
+  }
+  localStroke.done = true;
+  sendSketchPayload({type:'sketch-end', id: localStroke.id});
+  localStroke = null;
+}
+
+/* ---- toolbar ---- */
+function renderSketchColors(){
+  const wrap = document.getElementById('sketchColors');
+  wrap.innerHTML = '';
+  SKETCH_COLORS.forEach(c=>{
+    const b = document.createElement('button');
+    b.className = 'sketch-swatch' + (c === sketchColor && !sketchEraser ? ' active' : '');
+    b.style.background = c;
+    b.title = c;
+    b.addEventListener('click', ()=>{ sketchColor = c; sketchEraser = false; renderSketchColors(); updateEraserBtn(); });
+    wrap.appendChild(b);
+  });
+}
+function updateEraserBtn(){
+  document.getElementById('sketchEraserBtn').classList.toggle('active', sketchEraser);
+}
+document.getElementById('sketchEraserBtn').addEventListener('click', ()=>{
+  sketchEraser = !sketchEraser;
+  renderSketchColors();
+  updateEraserBtn();
+});
+document.getElementById('sketchSize').addEventListener('input', (e)=>{ sketchSize = parseInt(e.target.value, 10) || 4; });
+document.getElementById('sketchClearBtn').addEventListener('click', ()=>{
+  if(sketchStrokes.length === 0) return;
+  showModal({
+    title:'Clear the sketch board?',
+    body:"This clears it for everyone in the room right now — it can't be undone.",
+    confirmText:'Clear', danger:true,
+    onConfirm: ()=>{
+      const obj = {type:'sketch-clear', name: state.myName};
+      sketchApplyClear(obj);
+      sendSketchPayload(obj);
+    }
+  });
+});
+
+function openSketchModal(){
+  document.getElementById('sketchModal').classList.add('active');
+  renderSketchColors();
+  updateEraserBtn();
+  document.getElementById('sketchSize').value = sketchSize;
+  requestAnimationFrame(resizeSketchCanvas);
+  if(!sketchResizeBound){
+    sketchResizeBound = true;
+    const onResize = ()=>{ if(sketchModalOpen()) resizeSketchCanvas(); };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', onResize);
+  }
+}
+function closeSketchModal(){
+  document.getElementById('sketchModal').classList.remove('active');
+}
+document.getElementById('sketchBtn').addEventListener('click', openSketchModal);
+document.getElementById('sketchCloseBtn').addEventListener('click', closeSketchModal);
+
+const sketchCanvasElement = document.getElementById('sketchCanvas');
+sketchCanvasElement.addEventListener('pointerdown', sketchPointerDown);
+sketchCanvasElement.addEventListener('pointermove', sketchPointerMove);
+sketchCanvasElement.addEventListener('pointerup', sketchPointerUp);
+sketchCanvasElement.addEventListener('pointercancel', sketchPointerUp);
+sketchCanvasElement.addEventListener('pointerleave', (e)=>{ if(e.pointerType === 'mouse') sketchPointerUp(e); });
+
 /* ---------------- leaving + back-button / close-tab guard ---------------- */
 function confirmLeaveRoom(onConfirmed){
   showModal({
@@ -2224,9 +2654,21 @@ function confirmLeaveRoom(onConfirmed){
     onConfirm: onConfirmed
   });
 }
+/* If the host is the one leaving, warn everyone else first so they see the
+   "host stopped the room" exit flow right away instead of waiting out the
+   full reconnect timeout. */
+async function broadcastHostClosing(){
+  if(!state.isHost) return;
+  try{
+    const payload = await encryptObj(state.key, {type:'host_closing'});
+    state.conns.forEach(({conn})=>{ if(conn.open) conn.send(payload); });
+    await new Promise(r=> setTimeout(r, 200)); // give it a beat to actually go out
+  }catch(e){}
+}
 document.getElementById('leaveBtn').addEventListener('click', ()=>{
-  confirmLeaveRoom(()=>{
+  confirmLeaveRoom(async ()=>{
     state.leavingIntentionally = true;
+    await broadcastHostClosing();
     try{ state.peer && state.peer.destroy(); }catch(e){}
     location.reload();
   });
@@ -2247,8 +2689,9 @@ window.addEventListener('popstate', (e)=>{
   if(!document.body.classList.contains('chat-mode')) return;
   // re-push immediately so the guard stays in place unless the user confirms
   history.pushState({cipherGuard:true}, '');
-  confirmLeaveRoom(()=>{
+  confirmLeaveRoom(async ()=>{
     state.leavingIntentionally = true;
+    await broadcastHostClosing();
     try{ state.peer && state.peer.destroy(); }catch(e){}
     backGuardArmed = false;
     history.back(); // consume the guard state, then actually leave
@@ -2266,6 +2709,13 @@ window.addEventListener('beforeunload', (e)=>{
 });
 window.addEventListener('unload', ()=>{
   state.leavingIntentionally = true;
+  if(state.isHost){
+    try{
+      encryptObj(state.key, {type:'host_closing'}).then(payload=>{
+        state.conns.forEach(({conn})=>{ if(conn.open) conn.send(payload); });
+      });
+    }catch(e){}
+  }
   try{ state.peer && state.peer.destroy(); }catch(e){}
 });
 </script>

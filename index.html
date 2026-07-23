@@ -2347,10 +2347,12 @@ let lastProgressScrollTs = 0;
 function updateProgressMessage(buf){
   if(!buf.el) return;
   const pct = Math.round((buf.received / buf.total) * 100);
-  const pctEl = buf.el.querySelector('.progress-pct');
-  const fillEl = buf.el.querySelector('.progress-bar-fill');
-  if(pctEl) pctEl.textContent = pct + '%';
-  if(fillEl) fillEl.style.width = pct + '%';
+  if(buf._lastPct === pct) return; // nothing actually changed on screen — skip the write
+  buf._lastPct = pct;
+  if(!buf._pctEl) buf._pctEl = buf.el.querySelector('.progress-pct');
+  if(!buf._fillEl) buf._fillEl = buf.el.querySelector('.progress-bar-fill');
+  if(buf._pctEl) buf._pctEl.textContent = pct + '%';
+  if(buf._fillEl) buf._fillEl.style.width = pct + '%';
   // Progress updates can fire many times a second while a file is coming
   // in. Forcing scrollTop on every single one fights any scroll the user
   // is doing by hand (it feels like the chat "sticks"/glitches). Bail
@@ -2585,8 +2587,55 @@ async function broadcastRoster(){
   renderMembersList();
 }
 
-async function relayToOthers(exceptId, payload){
-  state.conns.forEach(({conn}, id)=>{ if(id !== exceptId && conn.open) conn.send(payload); });
+/* Keeps how much data we let pile up in a peer's outgoing buffer capped,
+   so a big file transfer never buries time-sensitive signals (leaving the
+   room, cancelling a send) behind a huge backlog on the same channel.
+   Small/urgent messages skip this and go out immediately; only bulky
+   traffic (file chunks) waits its turn. Computed lazily since CHUNK_SIZE
+   is declared further down the file. */
+function maxBufferedBytes(){ return 3 * CHUNK_SIZE; }
+function openDataChannels(){
+  const channels = [];
+  if(state.isHost){
+    state.conns.forEach(({conn})=>{ if(conn.open && conn.dataChannel) channels.push(conn.dataChannel); });
+  } else if(state.hostConn && state.hostConn.open && state.hostConn.dataChannel){
+    channels.push(state.hostConn.dataChannel);
+  }
+  return channels;
+}
+function waitForSendBufferLow(){
+  const cap = maxBufferedBytes();
+  const busy = openDataChannels().filter(ch=> ch.bufferedAmount > cap);
+  if(!busy.length) return Promise.resolve();
+  return new Promise(resolve=>{
+    let remaining = busy.length;
+    const done = ()=>{ remaining--; if(remaining<=0) resolve(); };
+    busy.forEach(ch=>{
+      let settled = false;
+      const finish = ()=>{ if(settled) return; settled = true; ch.removeEventListener('bufferedamountlow', finish); done(); };
+      try{ ch.bufferedAmountLowThreshold = Math.floor(cap/2); }catch(e){}
+      ch.addEventListener('bufferedamountlow', finish);
+      setTimeout(finish, 250); // fallback in case the event never fires
+    });
+  });
+}
+
+async function relayToOthers(exceptId, payload, bulky){
+  const cap = maxBufferedBytes();
+  const targets = [];
+  state.conns.forEach(({conn}, id)=>{ if(id !== exceptId && conn.open) targets.push(conn); });
+  for(const conn of targets){
+    if(bulky && conn.dataChannel && conn.dataChannel.bufferedAmount > cap){
+      await new Promise(resolve=>{
+        let settled = false;
+        const finish = ()=>{ if(settled) return; settled = true; conn.dataChannel.removeEventListener('bufferedamountlow', finish); resolve(); };
+        try{ conn.dataChannel.bufferedAmountLowThreshold = Math.floor(cap/2); }catch(e){}
+        conn.dataChannel.addEventListener('bufferedamountlow', finish);
+        setTimeout(finish, 250);
+      });
+    }
+    if(conn.open) conn.send(payload);
+  }
 }
 
 function sendPayloadToPeers(payload){
@@ -2822,7 +2871,7 @@ async function handleIncoming(raw, fromConnId){
       finalizeIncomingFile(buf, dataUrl, obj.id);
       incomingFiles.delete(obj.id);
     }
-    if(state.isHost){ await relayToOthers(fromConnId, raw); }
+    if(state.isHost){ await relayToOthers(fromConnId, raw, true); }
   }
   else if(obj.type === 'file-cancel'){
     const buf = incomingFiles.get(obj.id);
@@ -3460,7 +3509,7 @@ document.getElementById('msgInput').addEventListener('keydown', (e)=>{
 });
 
 /* ---------------- sending photos & files (chunked, so large ones actually arrive) ---------------- */
-const CHUNK_SIZE = 15000;
+const CHUNK_SIZE = 62000;
 
 function compressImage(file, maxDim, quality){
   return new Promise((resolve, reject)=>{
@@ -3521,14 +3570,18 @@ function waitUntilTransferReady(buf){
   });
 }
 async function ensureTransferReady(buf){
-  if(transferReady() || buf.cancelled) return;
-  setProgressPaused(buf, true);
-  await waitUntilTransferReady(buf);
-  setProgressPaused(buf, false);
+  if(!transferReady() && !buf.cancelled){
+    setProgressPaused(buf, true);
+    await waitUntilTransferReady(buf);
+    setProgressPaused(buf, false);
+  }
+  if(buf.cancelled) return;
+  await waitForSendBufferLow();
 }
 
 let sendFileQueue = [];
 let activeSendCount = 0;
+let activeSendBufs = [];
 const MAX_CONCURRENT_FILE_SENDS = 3;
 function queueFileSend(file){
   sendFileQueue.push(file);
@@ -3540,6 +3593,13 @@ function pumpFileQueue(){
     activeSendCount++;
     sendFile(file).finally(()=>{ activeSendCount--; pumpFileQueue(); });
   }
+}
+/* Called when the room is being left (by anyone) so no more file-chunk
+   traffic gets queued behind the leave signal — any transfers in progress
+   stop right away instead of trickling out the rest of their chunks. */
+function cancelAllActiveSends(){
+  sendFileQueue.length = 0;
+  activeSendBufs.forEach(b=>{ b.cancelled = true; });
 }
 
 async function sendFile(file){
@@ -3563,9 +3623,18 @@ async function sendFile(file){
     const ts = Date.now();
 
     buf = { total, received:0, nextSeq:0, name: state.myName, ts, isImage, fileName: file.name, mine:true, sizeLabel: formatBytes(file.size) };
+    activeSendBufs.push(buf);
     buf.el = addProgressMessage(buf);
     const cancelBtn = buf.el.querySelector('.progress-cancel-btn');
-    if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ buf.cancelled = true; });
+    if(cancelBtn) cancelBtn.addEventListener('click', ()=>{
+      if(buf.cancelled) return;
+      buf.cancelled = true;
+      // Fire the cancel signal immediately rather than waiting for the
+      // send loop to notice — the receiver should drop the file right away.
+      encryptObj(state.key, {type:'file-cancel', id, name: state.myName})
+        .then(cancelPayload=> sendPayloadToPeers(cancelPayload))
+        .catch(()=>{});
+    });
 
     for(let i=buf.nextSeq; i<total; i++){
       if(buf.cancelled) break;
@@ -3580,13 +3649,11 @@ async function sendFile(file){
       buf.received++;
       buf.nextSeq = i+1;
       if(i % 5 === 0 || i === total-1) updateProgressMessage(buf);
-      if(i % 3 === 2) await new Promise(r=> setTimeout(r, 0));
+      if(i % 10 === 9) await new Promise(r=> setTimeout(r, 0));
     }
 
     if(buf.cancelled){
       if(buf.el) buf.el.remove();
-      const cancelPayload = await encryptObj(state.key, {type:'file-cancel', id, name: state.myName});
-      sendPayloadToPeers(cancelPayload);
       addMessage({system:true, text:`You cancelled sending ${isImage ? 'the photo' : (file.name || 'the file')}.`});
       return;
     }
@@ -3596,6 +3663,8 @@ async function sendFile(file){
     console.error(err);
     if(buf && buf.el) buf.el.remove();
     addMessage({system:true, text:"Couldn't send that file."});
+  } finally {
+    if(buf) activeSendBufs = activeSendBufs.filter(b=> b !== buf);
   }
 }
 document.getElementById('attachBtn').addEventListener('click', ()=> document.getElementById('fileInput').click());
@@ -5461,6 +5530,7 @@ async function broadcastHostClosing(){
 }
 async function leaveRoomNow(){
   state.leavingIntentionally = true;
+  cancelAllActiveSends();
   clearTimeout(roomExpiryTimer);
   clearTimeout(roomAutoCloseTimer);
   await broadcastHostClosing();
@@ -5535,6 +5605,7 @@ window.addEventListener('popstate', (e)=>{
   history.pushState({cipherGuard:true}, '');
   confirmLeaveRoom(async ()=>{
     state.leavingIntentionally = true;
+    cancelAllActiveSends();
     clearTimeout(roomExpiryTimer);
     clearTimeout(roomAutoCloseTimer);
     await broadcastHostClosing();
@@ -5555,6 +5626,7 @@ window.addEventListener('beforeunload', (e)=>{
 });
 window.addEventListener('unload', ()=>{
   state.leavingIntentionally = true;
+  cancelAllActiveSends();
   if(state.isHost){
     try{
       encryptObj(state.key, {type:'host_closing'}).then(payload=>{

@@ -292,7 +292,7 @@
      No wrapping card/pill anymore — each participant is a free-floating
      bubble + name, gently bobbing, docked to the bottom-left of the chat.
      Every avatar gets its own unique "premium" accent color (assigned in
-     JS via --avatar-color / --avatar-bg) which drives its speaking glow. */
+     JS via --avatar-color / --avatar-bg) which drives its speaking ring. */
   .voice-avatars-bar{
     display:none; align-items:flex-end; gap:14px; flex-wrap:wrap;
     position:absolute; left:14px; bottom:14px; z-index:20;
@@ -328,15 +328,6 @@
       0 0 0 1px color-mix(in srgb, var(--avatar-color, var(--accent)) 30%, transparent) inset,
       0 0 0 1px rgba(255,255,255,0.06) inset;
   }
-  /* Ambient bloom — a soft, fully blurred halo sitting well outside the
-     circle's edge (never touching it), so the color reads as light cast
-     into the room rather than a ring painted on the avatar. */
-  .voice-avatar-circle::before{
-    content:''; position:absolute; inset:-20px; border-radius:50%; z-index:-1;
-    background:radial-gradient(circle, color-mix(in srgb, var(--avatar-color, var(--accent)) 65%, transparent) 0%, color-mix(in srgb, var(--avatar-color, var(--accent)) 22%, transparent) 42%, transparent 70%);
-    filter:blur(4px);
-    opacity:0; transform:scale(0.6); transition:opacity .35s ease, transform .35s ease;
-  }
   /* Fine glassy highlight for a premium, dimensional finish. */
   .voice-avatar-circle::after{
     content:''; position:absolute; inset:0; border-radius:50%; pointer-events:none;
@@ -344,6 +335,7 @@
     mix-blend-mode:overlay; opacity:.8;
   }
   .voice-avatar-circle .material-symbols-outlined{ font-size:12px; }
+  .voice-avatar-initial{ position:relative; z-index:1; }
   .voice-avatar-name{
     font-size:9.5px; font-weight:600; color:var(--text); max-width:52px; overflow:hidden;
     text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 4px rgba(0,0,0,0.4);
@@ -353,32 +345,30 @@
   }
   .voice-avatar.muted .voice-avatar-circle{ opacity:.55; }
   .voice-avatar-circle.speaking{
-    transform:scale(1.1);
-    animation:voiceSpeakPulse 1.7s ease-in-out infinite;
+    transform:scale(1.08);
+    box-shadow:
+      0 4px 10px -4px rgba(10,15,25,0.55),
+      0 0 0 1.5px var(--avatar-color, var(--online)) inset,
+      0 0 0 1.5px rgba(255,255,255,0.08) inset;
   }
-  .voice-avatar-circle.speaking::before{
-    opacity:1; transform:scale(1);
-    animation:voiceHaloPulse 1.7s ease-in-out infinite;
+  /* Ripple rings — crisp, unblurred outlines that expand outward from the
+     avatar edge and fade, like sonar. Two rings staggered for a smoother,
+     more premium cadence than a single pulse. */
+  .voice-ripple-ring{
+    position:absolute; inset:0; border-radius:50%;
+    border:1.5px solid var(--avatar-color, var(--accent));
+    opacity:0; pointer-events:none; display:none;
   }
-  @keyframes voiceSpeakPulse{
-    0%,100%{
-      box-shadow:
-        0 4px 10px -4px rgba(10,15,25,0.55),
-        0 0 0 1px color-mix(in srgb, var(--avatar-color, var(--online)) 55%, transparent) inset,
-        0 0 0 1px rgba(255,255,255,0.06) inset,
-        0 0 10px 1px color-mix(in srgb, var(--avatar-color, var(--online)) 55%, transparent);
-    }
-    50%{
-      box-shadow:
-        0 4px 10px -4px rgba(10,15,25,0.55),
-        0 0 0 1px color-mix(in srgb, var(--avatar-color, var(--online)) 70%, transparent) inset,
-        0 0 0 1px rgba(255,255,255,0.08) inset,
-        0 0 16px 3px color-mix(in srgb, var(--avatar-color, var(--online)) 70%, transparent);
-    }
+  .voice-avatar-circle.speaking .voice-ripple-ring{
+    display:block;
+    animation:voiceRipple 1.8s cubic-bezier(.25,.65,.4,1) infinite;
   }
-  @keyframes voiceHaloPulse{
-    0%,100%{ opacity:.7; transform:scale(0.85); }
-    50%{ opacity:1; transform:scale(1.05); }
+  .voice-avatar-circle.speaking .voice-ripple-ring:nth-of-type(2){
+    animation-delay:.9s;
+  }
+  @keyframes voiceRipple{
+    0%{ transform:scale(1); opacity:.6; border-width:1.5px; }
+    100%{ transform:scale(2.1); opacity:0; border-width:.5px; }
   }
 
   /* ---------------- connecting / retrieving-information overlay ---------------- */
@@ -716,16 +706,16 @@
 
       <div class="field">
         <label>Your name</label>
-        <input type="text" id="startName" placeholder="e.g. Kiran" maxlength="24" name="displayName" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+        <input type="text" id="startName" placeholder="e.g. Kiran" maxlength="24" name="displayName" autocomplete="name">
       </div>
       <div class="field">
         <label>Room name <span class="optional">(optional)</span></label>
-        <input type="text" id="startRoomName" placeholder="e.g. Movie night" maxlength="30" name="roomLabel" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+        <input type="text" id="startRoomName" placeholder="e.g. Movie night" maxlength="30" name="roomLabel" autocomplete="on">
       </div>
       <div class="field">
         <label>Security code</label>
         <div class="row">
-          <input type="text" class="mono" id="startCode" placeholder="Set a passcode" maxlength="20" name="securityPhrase" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+          <input type="text" class="mono" id="startCode" placeholder="Set a passcode" maxlength="20" name="securityPhrase" autocomplete="new-password">
           <button class="inline-btn" id="genCode">Generate</button>
         </div>
         <p class="hint">Share this code with people separately from the room code (e.g. in person or a different app) — that's what keeps this end‑to‑end encrypted.</p>
@@ -747,15 +737,15 @@
 
       <div class="field">
         <label>Your name</label>
-        <input type="text" id="joinName" placeholder="e.g. Priya" maxlength="24" name="displayName" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+        <input type="text" id="joinName" placeholder="e.g. Priya" maxlength="24" name="displayName" autocomplete="name">
       </div>
       <div class="field">
         <label>Room code</label>
-        <input type="text" class="mono" id="joinRoom" placeholder="XXXXXX" maxlength="6" name="roomIdentifier" autocomplete="off" autocapitalize="characters" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+        <input type="text" class="mono" id="joinRoom" placeholder="XXXXXX" maxlength="6" name="roomIdentifier" autocomplete="username" autocapitalize="characters">
       </div>
       <div class="field">
         <label>Security code</label>
-        <input type="text" class="mono" id="joinCode" placeholder="Passcode" name="securityPhrase" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+        <input type="text" class="mono" id="joinCode" placeholder="Passcode" name="securityPhrase" autocomplete="current-password">
       </div>
       <p class="error" id="joinError"></p>
       <button class="btn btn-primary" id="joinBtn">Join room</button>
@@ -3303,7 +3293,7 @@ function addVoiceAvatar(key, name, stream){
     wrap.style.setProperty('--avatar-color', color);
     wrap.style.setProperty('--avatar-bg', color + '26');
     wrap.style.setProperty('--float-delay', (Math.random() * 1.8).toFixed(2));
-    wrap.innerHTML = `<div class="voice-avatar-circle" id="voiceAvatarCircle-${key}">${escapeHtml(initialsFor(name))}</div><div class="voice-avatar-name">${escapeHtml(key==='me' ? 'You' : name)}</div>`;
+    wrap.innerHTML = `<div class="voice-avatar-circle" id="voiceAvatarCircle-${key}"><span class="voice-ripple-ring"></span><span class="voice-ripple-ring"></span><span class="voice-avatar-initial">${escapeHtml(initialsFor(name))}</span></div><div class="voice-avatar-name">${escapeHtml(key==='me' ? 'You' : name)}</div>`;
     bar.appendChild(wrap);
   }
   bar.classList.add('active');

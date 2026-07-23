@@ -493,54 +493,51 @@
   .msg.them .progress-box::before{ animation-direction:reverse; }
   @keyframes nebulaSpin{ to{ transform:rotate(360deg); } }
 
-  /* the centrepiece: eight little chunk tiles ringed around the file
-     glyph. Sending, they launch outward one by one and vanish — chunks
-     being fired off. Receiving, they arrive from outside and settle
-     into place — the file assembling itself piece by piece. */
+  /* the centrepiece: eight little crystal tiles ringed around the file
+     glyph, sitting still in place. A slow brightness wave ripples
+     through them one by one — sending sweeps outward from the file,
+     receiving sweeps inward toward it — without any tile actually
+     moving. */
   .progress-icon-wrap{ position:relative; width:60px; height:60px; display:flex; align-items:center; justify-content:center; z-index:1; }
   .chunk-grid{ position:absolute; inset:0; width:60px; height:60px; z-index:1; }
-  .chunk-piece{ position:absolute; width:12px; height:12px; opacity:0;
+  .chunk-piece{ position:absolute; width:12px; height:12px; opacity:.28;
     background:linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(203,213,225,0.55) 55%, rgba(148,163,184,0.4) 100%);
     border:1px solid rgba(255,255,255,0.65);
-    clip-path:polygon(50% 0%, 100% 38%, 80% 100%, 20% 100%, 0% 38%); }
-  .chunk-piece:nth-child(1){ left:2px;  top:2px;  --dx:-1; --dy:-1; }
-  .chunk-piece:nth-child(2){ left:24px; top:2px;  --dx:0;  --dy:-1; }
-  .chunk-piece:nth-child(3){ left:46px; top:2px;  --dx:1;  --dy:-1; }
-  .chunk-piece:nth-child(4){ left:2px;  top:24px; --dx:-1; --dy:0;  }
-  .chunk-piece:nth-child(5){ left:46px; top:24px; --dx:1;  --dy:0;  }
-  .chunk-piece:nth-child(6){ left:2px;  top:46px; --dx:-1; --dy:1;  }
-  .chunk-piece:nth-child(7){ left:24px; top:46px; --dx:0;  --dy:1;  }
-  .chunk-piece:nth-child(8){ left:46px; top:46px; --dx:1;  --dy:1;  }
-  .msg.me .chunk-piece{ animation:chunkOut 1.6s cubic-bezier(.3,.7,.4,1) infinite; }
-  .msg.me .chunk-piece:nth-child(1){ animation-delay:0s; }
-  .msg.me .chunk-piece:nth-child(2){ animation-delay:.2s; }
-  .msg.me .chunk-piece:nth-child(3){ animation-delay:.4s; }
-  .msg.me .chunk-piece:nth-child(4){ animation-delay:.6s; }
-  .msg.me .chunk-piece:nth-child(5){ animation-delay:.8s; }
-  .msg.me .chunk-piece:nth-child(6){ animation-delay:1s;  }
-  .msg.me .chunk-piece:nth-child(7){ animation-delay:1.2s;}
-  .msg.me .chunk-piece:nth-child(8){ animation-delay:1.4s;}
-  @keyframes chunkOut{
-    0%  { transform:translate(0,0) scale(.6); opacity:0; }
-    12% { transform:translate(0,0) scale(1); opacity:1; }
-    55% { transform:translate(calc(var(--dx)*22px), calc(var(--dy)*22px)) scale(.85); opacity:1; }
-    100%{ transform:translate(calc(var(--dx)*40px), calc(var(--dy)*40px)) scale(.35); opacity:0; }
-  }
-  .msg.them .chunk-piece{ animation:chunkIn 1.6s cubic-bezier(.3,.7,.4,1) infinite; }
-  .msg.them .chunk-piece:nth-child(1){ animation-delay:0s; }
-  .msg.them .chunk-piece:nth-child(2){ animation-delay:.2s; }
-  .msg.them .chunk-piece:nth-child(3){ animation-delay:.4s; }
-  .msg.them .chunk-piece:nth-child(4){ animation-delay:.6s; }
-  .msg.them .chunk-piece:nth-child(5){ animation-delay:.8s; }
-  .msg.them .chunk-piece:nth-child(6){ animation-delay:1s;  }
-  .msg.them .chunk-piece:nth-child(7){ animation-delay:1.2s;}
-  .msg.them .chunk-piece:nth-child(8){ animation-delay:1.4s;}
-  @keyframes chunkIn{
-    0%  { transform:translate(calc(var(--dx)*40px), calc(var(--dy)*40px)) scale(.35); opacity:0; }
-    45% { transform:translate(calc(var(--dx)*8px), calc(var(--dy)*8px)) scale(.9); opacity:1; }
-    70% { transform:translate(0,0) scale(1); opacity:1; }
-    92% { transform:translate(0,0) scale(1); opacity:1; }
-    100%{ transform:translate(0,0) scale(.6); opacity:0; }
+    clip-path:polygon(50% 0%, 100% 38%, 80% 100%, 20% 100%, 0% 38%);
+    animation:chunkWave 3.2s ease-in-out infinite; }
+  .chunk-piece:nth-child(1){ left:2px;  top:2px;  }
+  .chunk-piece:nth-child(2){ left:24px; top:2px;  }
+  .chunk-piece:nth-child(3){ left:46px; top:2px;  }
+  .chunk-piece:nth-child(4){ left:2px;  top:24px; }
+  .chunk-piece:nth-child(5){ left:46px; top:24px; }
+  .chunk-piece:nth-child(6){ left:2px;  top:46px; }
+  .chunk-piece:nth-child(7){ left:24px; top:46px; }
+  .chunk-piece:nth-child(8){ left:46px; top:46px; }
+  /* sending: wave travels 1 -> 8 (outward from the file, reading like
+     it's pushing pieces out toward the edges). */
+  .msg.me .chunk-piece:nth-child(1){ animation-delay:0s;    }
+  .msg.me .chunk-piece:nth-child(2){ animation-delay:.25s;  }
+  .msg.me .chunk-piece:nth-child(3){ animation-delay:.5s;   }
+  .msg.me .chunk-piece:nth-child(4){ animation-delay:.75s;  }
+  .msg.me .chunk-piece:nth-child(5){ animation-delay:1s;    }
+  .msg.me .chunk-piece:nth-child(6){ animation-delay:1.25s; }
+  .msg.me .chunk-piece:nth-child(7){ animation-delay:1.5s;  }
+  .msg.me .chunk-piece:nth-child(8){ animation-delay:1.75s; }
+  /* receiving: same wave, reversed order, so it reads as travelling
+     inward toward the file instead. */
+  .msg.them .chunk-piece:nth-child(8){ animation-delay:0s;    }
+  .msg.them .chunk-piece:nth-child(7){ animation-delay:.25s;  }
+  .msg.them .chunk-piece:nth-child(6){ animation-delay:.5s;   }
+  .msg.them .chunk-piece:nth-child(5){ animation-delay:.75s;  }
+  .msg.them .chunk-piece:nth-child(4){ animation-delay:1s;    }
+  .msg.them .chunk-piece:nth-child(3){ animation-delay:1.25s; }
+  .msg.them .chunk-piece:nth-child(2){ animation-delay:1.5s;  }
+  .msg.them .chunk-piece:nth-child(1){ animation-delay:1.75s; }
+  @keyframes chunkWave{
+    0%  { opacity:.28; transform:scale(.85); }
+    18% { opacity:1;   transform:scale(1);   }
+    36% { opacity:.28; transform:scale(.85); }
+    100%{ opacity:.28; transform:scale(.85); }
   }
   /* soft breathing light behind the glyph, timed with its own pulse */
   .progress-icon-wrap::before{

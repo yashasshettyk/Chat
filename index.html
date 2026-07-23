@@ -468,27 +468,21 @@
 
   .progress-msg{ width:184px; }
   .progress-box{
-    --progress-glow: #8b5cf6;   /* sending: violet -> pink, energetic "launch" */
-    --progress-glow-2: #ec4899;
+    --progress-glow: #d7dde5;   /* monochrome — grey/white only, no colour tint */
+    --progress-glow-2: #8b95a3;
     position:relative; width:100%; height:118px; border-radius:12px; overflow:hidden;
     display:flex; align-items:center; justify-content:center; isolation:isolate;
-    background:
-      radial-gradient(circle at 50% 45%, rgba(139,92,246,0.22), transparent 65%),
-      linear-gradient(145deg, var(--surface-2), var(--surface));
+    background:#0c0e12;
   }
   .msg.them .progress-box{
-    --progress-glow: #22d3ee;   /* receiving: cyan -> blue, cool "arrival" */
-    --progress-glow-2: #3b82f6;
-    background:
-      radial-gradient(circle at 50% 45%, rgba(34,211,238,0.22), transparent 65%),
-      linear-gradient(145deg, var(--surface-2), var(--surface));
+    background:#0c0e12;
   }
-  /* a slow, soft wash of colour turns behind the icon for depth — like the
-     field the chunks are moving through. Barely-there on purpose. */
+  /* a faint grey wash turns slowly behind the icon for depth — no colour,
+     just a shade of the wireframe itself moving. */
   .progress-box::before{
     content:''; position:absolute; inset:-45%;
-    background:conic-gradient(from 0deg, transparent 0 20%, var(--progress-glow) 32%, transparent 46% 100%);
-    opacity:0.14; filter:blur(6px); animation:nebulaSpin 9s linear infinite;
+    background:conic-gradient(from 0deg, transparent 0 20%, rgba(255,255,255,0.5) 32%, transparent 46% 100%);
+    opacity:0.08; filter:blur(6px); animation:nebulaSpin 9s linear infinite;
   }
   .msg.them .progress-box::before{ animation-direction:reverse; }
   @keyframes nebulaSpin{ to{ transform:rotate(360deg); } }
@@ -499,45 +493,41 @@
      receiving sweeps inward toward it — without any tile actually
      moving. */
   .progress-icon-wrap{ position:relative; width:60px; height:60px; display:flex; align-items:center; justify-content:center; z-index:1; }
-  .chunk-grid{ position:absolute; inset:0; width:60px; height:60px; z-index:1; }
-  .chunk-piece{ position:absolute; width:12px; height:12px; opacity:.28;
-    background:linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(203,213,225,0.55) 55%, rgba(148,163,184,0.4) 100%);
-    border:1px solid rgba(255,255,255,0.65);
-    clip-path:polygon(50% 0%, 100% 38%, 80% 100%, 20% 100%, 0% 38%);
-    animation:chunkWave 3.2s ease-in-out infinite; }
-  .chunk-piece:nth-child(1){ left:2px;  top:2px;  }
-  .chunk-piece:nth-child(2){ left:24px; top:2px;  }
-  .chunk-piece:nth-child(3){ left:46px; top:2px;  }
-  .chunk-piece:nth-child(4){ left:2px;  top:24px; }
-  .chunk-piece:nth-child(5){ left:46px; top:24px; }
-  .chunk-piece:nth-child(6){ left:2px;  top:46px; }
-  .chunk-piece:nth-child(7){ left:24px; top:46px; }
-  .chunk-piece:nth-child(8){ left:46px; top:46px; }
-  /* sending: wave travels 1 -> 8 (outward from the file, reading like
-     it's pushing pieces out toward the edges). */
-  .msg.me .chunk-piece:nth-child(1){ animation-delay:0s;    }
-  .msg.me .chunk-piece:nth-child(2){ animation-delay:.25s;  }
-  .msg.me .chunk-piece:nth-child(3){ animation-delay:.5s;   }
-  .msg.me .chunk-piece:nth-child(4){ animation-delay:.75s;  }
-  .msg.me .chunk-piece:nth-child(5){ animation-delay:1s;    }
-  .msg.me .chunk-piece:nth-child(6){ animation-delay:1.25s; }
-  .msg.me .chunk-piece:nth-child(7){ animation-delay:1.5s;  }
-  .msg.me .chunk-piece:nth-child(8){ animation-delay:1.75s; }
-  /* receiving: same wave, reversed order, so it reads as travelling
-     inward toward the file instead. */
-  .msg.them .chunk-piece:nth-child(8){ animation-delay:0s;    }
-  .msg.them .chunk-piece:nth-child(7){ animation-delay:.25s;  }
-  .msg.them .chunk-piece:nth-child(6){ animation-delay:.5s;   }
-  .msg.them .chunk-piece:nth-child(5){ animation-delay:.75s;  }
-  .msg.them .chunk-piece:nth-child(4){ animation-delay:1s;    }
-  .msg.them .chunk-piece:nth-child(3){ animation-delay:1.25s; }
-  .msg.them .chunk-piece:nth-child(2){ animation-delay:1.5s;  }
-  .msg.them .chunk-piece:nth-child(1){ animation-delay:1.75s; }
-  @keyframes chunkWave{
-    0%  { opacity:.28; transform:scale(.85); }
-    18% { opacity:1;   transform:scale(1);   }
-    36% { opacity:.28; transform:scale(.85); }
-    100%{ opacity:.28; transform:scale(.85); }
+  .chunk-grid{ position:absolute; inset:0; width:60px; height:60px; z-index:1; overflow:visible; }
+  .wire-line{ fill:none; stroke:rgba(255,255,255,0.15); stroke-width:1; vector-effect:non-scaling-stroke;
+    animation:wireWave 3.2s ease-in-out infinite; }
+  /* sending: the brightness wave sweeps top-to-bottom / left-to-right,
+     line by line, outward through the mesh. */
+  .msg.me .wire-line:nth-child(1){  animation-delay:0s;    }
+  .msg.me .wire-line:nth-child(2){  animation-delay:.18s;  }
+  .msg.me .wire-line:nth-child(3){  animation-delay:.36s;  }
+  .msg.me .wire-line:nth-child(4){  animation-delay:.54s;  }
+  .msg.me .wire-line:nth-child(5){  animation-delay:.72s;  }
+  .msg.me .wire-line:nth-child(6){  animation-delay:.9s;   }
+  .msg.me .wire-line:nth-child(7){  animation-delay:1.08s; }
+  .msg.me .wire-line:nth-child(8){  animation-delay:1.26s; }
+  .msg.me .wire-line:nth-child(9){  animation-delay:1.44s; }
+  .msg.me .wire-line:nth-child(10){ animation-delay:1.62s; }
+  .msg.me .wire-line:nth-child(11){ animation-delay:1.8s;  }
+  .msg.me .wire-line:nth-child(12){ animation-delay:1.98s; }
+  /* receiving: same wave, reversed, so it reads as sweeping inward. */
+  .msg.them .wire-line:nth-child(12){ animation-delay:0s;    }
+  .msg.them .wire-line:nth-child(11){ animation-delay:.18s;  }
+  .msg.them .wire-line:nth-child(10){ animation-delay:.36s;  }
+  .msg.them .wire-line:nth-child(9){  animation-delay:.54s;  }
+  .msg.them .wire-line:nth-child(8){  animation-delay:.72s;  }
+  .msg.them .wire-line:nth-child(7){  animation-delay:.9s;   }
+  .msg.them .wire-line:nth-child(6){  animation-delay:1.08s; }
+  .msg.them .wire-line:nth-child(5){  animation-delay:1.26s; }
+  .msg.them .wire-line:nth-child(4){  animation-delay:1.44s; }
+  .msg.them .wire-line:nth-child(3){  animation-delay:1.62s; }
+  .msg.them .wire-line:nth-child(2){  animation-delay:1.8s;  }
+  .msg.them .wire-line:nth-child(1){  animation-delay:1.98s; }
+  @keyframes wireWave{
+    0%  { stroke:rgba(255,255,255,0.15); }
+    18% { stroke:rgba(255,255,255,0.95); }
+    36% { stroke:rgba(255,255,255,0.15); }
+    100%{ stroke:rgba(255,255,255,0.15); }
   }
   /* soft breathing light behind the glyph, timed with its own pulse */
   .progress-icon-wrap::before{
@@ -560,16 +550,15 @@
   .progress-label{ text-transform:uppercase; font-size:10.5px; opacity:0.8; display:flex; align-items:center; gap:4px; }
   .progress-label .material-symbols-outlined{ font-size:12px; color:var(--progress-glow); }
   .progress-pct{ font-weight:700; color:var(--progress-glow); text-shadow:0 0 8px var(--progress-glow); }
-  .progress-bar-track{ height:7px; background:rgba(0,0,0,0.22); border:1px solid var(--border); border-radius:4px; margin-top:6px; overflow:hidden; position:relative; box-shadow:inset 0 1px 3px rgba(0,0,0,0.25); }
-  .progress-bar-fill{ position:relative; height:100%; border-radius:4px; background:linear-gradient(90deg, var(--progress-glow), var(--progress-glow-2)); width:0%; min-width:0; transition:width .18s cubic-bezier(.2,.8,.2,1); box-shadow:inset 0 1px 0 rgba(255,255,255,0.4); overflow:hidden; }
+  .progress-bar-track{ height:7px; background:#1b1e24; border:1px solid rgba(255,255,255,0.08); border-radius:4px; margin-top:6px; overflow:hidden; position:relative; box-shadow:inset 0 1px 3px rgba(0,0,0,0.4); }
+  .progress-bar-fill{ position:relative; height:100%; border-radius:4px; background:linear-gradient(90deg, #e7eaef, #aab2bd); width:0%; min-width:0; transition:width .18s cubic-bezier(.2,.8,.2,1); box-shadow:inset 0 1px 0 rgba(255,255,255,0.5); overflow:hidden; }
   /* a bright comet-head sweeps across the filled portion for a premium "in motion" feel */
   .progress-bar-fill::after{ content:''; position:absolute; inset:0; width:40%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.85) 50%, transparent); animation:progressComet 1s linear infinite; }
   @keyframes progressComet{ 0%{ transform:translateX(-120%); } 100%{ transform:translateX(280%); } }
   .msg.me .progress-text{ color:var(--bubble-me-text); opacity:0.85; }
-  .msg.me .progress-bar-track{ background:rgba(0,0,0,0.32); border-color:rgba(255,255,255,0.16); }
   .msg.paused .progress-box{ --progress-glow: var(--danger); --progress-glow-2: var(--danger); opacity:0.6; }
   .msg.paused .progress-box::before,
-  .msg.paused .chunk-piece,
+  .msg.paused .wire-line,
   .msg.paused .progress-icon-wrap::before,
   .msg.paused .progress-icon-wrap .material-symbols-outlined,
   .msg.paused .progress-spark,
@@ -2334,11 +2323,20 @@ function addProgressMessage(buf){
     </button>` : ''}
     <div class="progress-box">
       <div class="progress-icon-wrap">
-        <div class="chunk-grid" aria-hidden="true">
-          <span class="chunk-piece"></span><span class="chunk-piece"></span><span class="chunk-piece"></span>
-          <span class="chunk-piece"></span><span class="chunk-piece"></span>
-          <span class="chunk-piece"></span><span class="chunk-piece"></span><span class="chunk-piece"></span>
-        </div>
+        <svg class="chunk-grid" viewBox="0 0 60 60" aria-hidden="true">
+          <line class="wire-line" x1="0" y1="0"  x2="60" y2="0"  />
+          <line class="wire-line" x1="0" y1="12" x2="60" y2="12" />
+          <line class="wire-line" x1="0" y1="24" x2="60" y2="24" />
+          <line class="wire-line" x1="0" y1="36" x2="60" y2="36" />
+          <line class="wire-line" x1="0" y1="48" x2="60" y2="48" />
+          <line class="wire-line" x1="0" y1="60" x2="60" y2="60" />
+          <line class="wire-line" x1="0"  y1="0" x2="0"  y2="60" />
+          <line class="wire-line" x1="12" y1="0" x2="12" y2="60" />
+          <line class="wire-line" x1="24" y1="0" x2="24" y2="60" />
+          <line class="wire-line" x1="36" y1="0" x2="36" y2="60" />
+          <line class="wire-line" x1="48" y1="0" x2="48" y2="60" />
+          <line class="wire-line" x1="60" y1="0" x2="60" y2="60" />
+        </svg>
         <span class="progress-spark"></span>
         <span class="material-symbols-outlined">${buf.isImage ? 'image' : 'description'}</span>
       </div>

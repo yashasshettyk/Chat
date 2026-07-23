@@ -406,6 +406,21 @@
   .msg.emoji-only .time{ opacity:0.65; }
   .msg.pressing{ transform:scale(0.97); transition:transform .15s ease; }
 
+  /* ---------- emoji reactions ---------- */
+  .reaction-picker-float{ position:fixed; z-index:400; display:flex; gap:2px; background:var(--surface); border:1px solid var(--border); border-radius:28px; padding:6px 8px; box-shadow:0 8px 28px rgba(0,0,0,0.22); opacity:0; transform:translateY(6px) scale(0.9); transition:opacity .15s ease, transform .15s cubic-bezier(.2,.8,.2,1); }
+  .reaction-picker-float.show{ opacity:1; transform:translateY(0) scale(1); }
+  .reaction-pick-btn{ border:none; background:transparent; font-size:22px; line-height:1; padding:5px 6px; border-radius:50%; cursor:pointer; transition:transform .12s ease, background .12s ease; }
+  .reaction-pick-btn:hover, .reaction-pick-btn:active{ background:var(--surface-2); transform:scale(1.25) translateY(-2px); }
+  .msg-reactions{ display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+  .reaction-pill{ display:inline-flex; align-items:center; gap:3px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1px 6px; font-size:13px; line-height:1.5; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+  .reaction-pill.mine{ border-color:var(--accent); background:var(--accent-soft); }
+  .reaction-count{ font-size:10.5px; font-weight:600; color:var(--muted); }
+  .reaction-confetti{ position:absolute; left:50%; top:50%; pointer-events:none; z-index:5; animation:reactionConfettiPop 900ms ease-out forwards; }
+  @keyframes reactionConfettiPop{
+    0%{ transform:translate(-50%,-50%) translate(0,0) scale(0.4) rotate(0deg); opacity:1; }
+    100%{ transform:translate(-50%,-50%) translate(var(--cx),var(--cy)) scale(1) rotate(var(--rot)); opacity:0; }
+  }
+
   /* ---------- typing indicator ---------- */
   .typing-row{ align-self:flex-start; display:flex; align-items:center; gap:5px; background:var(--bubble-them-bg); border:1px solid var(--bubble-them-border); border-radius:16px; border-bottom-left-radius:5px; padding:11px 15px; animation:typingIn .28s cubic-bezier(.2,.8,.2,1); }
   @keyframes typingIn{ from{ opacity:0; transform:translateY(8px) scale(0.92);} to{ opacity:1; transform:none;} }
@@ -1662,7 +1677,7 @@ function attachMessageActions(el, isSystem, msgId, mine, preview){
     if(quote){ e.stopPropagation(); scrollToMessage(quote.dataset.quoteId); return; }
     if(e.target.closest('.file-chip')) return;
     if(longPressFired){ longPressFired = false; return; }
-    openMsgActionSheet(msgId);
+    if(msgId) showReactionPicker(msgId, el);
   });
 
   el.addEventListener('contextmenu', (e)=>{ e.preventDefault(); openMsgActionSheet(msgId); });
@@ -1880,6 +1895,7 @@ function removeMessageEl(msgId, announce){
   el.classList.add('removing');
   setTimeout(()=> el.remove(), 180);
   messageElements.delete(msgId);
+  msgReactions.delete(msgId);
 }
 
 document.getElementById('msgDeleteForMe').addEventListener('click', ()=>{
@@ -1895,6 +1911,121 @@ document.getElementById('msgDeleteForEveryone').addEventListener('click', async 
   sendPayloadToPeers(payload);
   closeSheets();
 });
+
+/* ---------------- emoji reactions (WhatsApp-style) ----------------
+   A quick tap/click on a bubble (as opposed to a long-press, which still
+   opens the delete sheet) pops a small floating row of emoji above the
+   message. Picking one shows a pill under the bubble, exactly like
+   WhatsApp, and is synced to everyone else in the room. Tapping your own
+   already-picked emoji again removes it. When someone else's reaction
+   arrives, the person receiving it sees a one-shot confetti burst of that
+   emoji the moment the message is in view (immediately if it's already
+   on screen, or the first time it scrolls into view otherwise). */
+const REACTION_EMOJIS = ['😂','😢','😨','😕','❤️','💯'];
+let msgReactions = new Map();   // msgId -> { name: emoji }
+let activeReactionPicker = null;
+
+function showReactionPicker(msgId, el){
+  closeReactionPicker();
+  const picker = document.createElement('div');
+  picker.className = 'reaction-picker-float';
+  picker.innerHTML = REACTION_EMOJIS.map(e=> `<button class="reaction-pick-btn" type="button" data-e="${e}">${e}</button>`).join('');
+  document.body.appendChild(picker);
+
+  const rect = el.getBoundingClientRect();
+  const pw = picker.offsetWidth, ph = picker.offsetHeight;
+  let top = rect.top - ph - 10;
+  if(top < 8) top = rect.bottom + 10;
+  let left = rect.left + rect.width / 2 - pw / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+  picker.style.top = top + 'px';
+  picker.style.left = left + 'px';
+
+  picker.querySelectorAll('.reaction-pick-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      sendReaction(msgId, btn.dataset.e);
+      closeReactionPicker();
+    });
+  });
+
+  activeReactionPicker = picker;
+  requestAnimationFrame(()=> picker.classList.add('show'));
+  setTimeout(()=> document.addEventListener('click', closeReactionPicker, {capture:true, once:true}), 0);
+  setTimeout(()=> document.getElementById('messages').addEventListener('scroll', closeReactionPicker, {once:true}), 0);
+}
+function closeReactionPicker(){
+  if(activeReactionPicker){ activeReactionPicker.remove(); activeReactionPicker = null; }
+}
+
+async function sendReaction(msgId, emoji){
+  const existing = msgReactions.get(msgId) || {};
+  const finalEmoji = (existing[state.myName] === emoji) ? null : emoji; // tap same emoji again -> remove
+  applyReaction(msgId, state.myName, finalEmoji);
+  const payload = await encryptObj(state.key, {type:'reaction', id: msgId, emoji: finalEmoji, by: state.myName});
+  sendPayloadToPeers(payload);
+}
+
+/* Records who reacted with what, re-renders the pill row, and reports
+   whether this is a genuinely new (non-removal) reaction from someone. */
+function applyReaction(msgId, by, emoji){
+  const entry = messageElements.get(msgId);
+  if(!entry) return false;
+  let r = msgReactions.get(msgId);
+  if(!r){ r = {}; msgReactions.set(msgId, r); }
+  const prev = r[by];
+  if(emoji){ r[by] = emoji; } else { delete r[by]; }
+  renderReactions(entry.el, r);
+  return !!emoji && prev !== emoji;
+}
+
+function renderReactions(el, r){
+  let bar = el.querySelector('.msg-reactions');
+  const counts = {};
+  Object.values(r).forEach(e=>{ counts[e] = (counts[e] || 0) + 1; });
+  const emojis = Object.keys(counts);
+  if(!emojis.length){ if(bar) bar.remove(); return; }
+  if(!bar){ bar = document.createElement('div'); bar.className = 'msg-reactions'; el.appendChild(bar); }
+  bar.innerHTML = emojis.map(e=>{
+    const mine = r[state.myName] === e ? ' mine' : '';
+    const count = counts[e] > 1 ? `<span class="reaction-count">${counts[e]}</span>` : '';
+    return `<span class="reaction-pill${mine}">${e}${count}</span>`;
+  }).join('');
+}
+
+/* Fires a one-off burst of the given emoji over a message bubble, once,
+   showing it immediately if the bubble is already on screen or waiting
+   for it to scroll into view otherwise. */
+function scheduleReactionConfetti(el, emoji){
+  const wrap = document.getElementById('messages');
+  const rect = el.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
+  const inView = rect.top < wrapRect.bottom && rect.bottom > wrapRect.top;
+  if(inView){ fireReactionConfetti(el, emoji); return; }
+  const obs = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){ fireReactionConfetti(el, emoji); obs.disconnect(); }
+    });
+  }, {root: wrap, threshold: 0.4});
+  obs.observe(el);
+}
+function fireReactionConfetti(el, emoji){
+  const count = 14;
+  for(let i=0;i<count;i++){
+    const span = document.createElement('span');
+    span.className = 'reaction-confetti';
+    span.textContent = emoji;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 36 + Math.random() * 54;
+    span.style.setProperty('--cx', Math.cos(angle) * dist + 'px');
+    span.style.setProperty('--cy', Math.sin(angle) * dist + 'px');
+    span.style.setProperty('--rot', (Math.random() * 360 - 180) + 'deg');
+    span.style.fontSize = (14 + Math.random() * 10) + 'px';
+    span.style.animationDelay = (Math.random() * 80) + 'ms';
+    span.addEventListener('animationend', ()=> span.remove());
+    el.appendChild(span);
+  }
+}
 
 /* ---------------- sending/receiving file/photo progress bubble ---------------- */
 function addProgressMessage(buf){
@@ -2308,6 +2439,14 @@ async function handleIncoming(raw, fromConnId){
     removeMessageEl(obj.id);
     if(state.isHost){ await relayToOthers(fromConnId, raw); }
   }
+  else if(obj.type === 'reaction'){
+    const isNew = applyReaction(obj.id, obj.by, obj.emoji);
+    if(isNew && obj.by !== state.myName){
+      const entry = messageElements.get(obj.id);
+      if(entry) scheduleReactionConfetti(entry.el, obj.emoji);
+    }
+    if(state.isHost){ await relayToOthers(fromConnId, raw); }
+  }
   else if(obj.type === 'roomname'){
     state.roomName = obj.roomName;
     updateHeaderTitle();
@@ -2511,12 +2650,22 @@ function currentMentionToken(){
   if(!m) return null;
   return { query: m[2], start: pos - m[2].length - 1, end: pos };
 }
+/* Names already @mentioned elsewhere in the input (excluding the token
+   currently being typed), so the suggestion list doesn't keep offering
+   someone who's already tagged. */
+function alreadyTaggedNames(token){
+  const input = document.getElementById('msgInput');
+  const val = input.value;
+  const withoutToken = val.slice(0, token.start) + val.slice(token.end);
+  return detectMentions(withoutToken);
+}
 function updateMentionPopup(){
   const popup = document.getElementById('mentionPopup');
   const token = currentMentionToken();
   if(!token){ popup.classList.remove('active'); mentionCandidates = []; return; }
   const q = token.query.toLowerCase();
-  mentionCandidates = getRoomMemberNames().filter(n=> n.toLowerCase().startsWith(q));
+  const already = new Set(alreadyTaggedNames(token));
+  mentionCandidates = getRoomMemberNames().filter(n=> n.toLowerCase().startsWith(q) && !already.has(n));
   if(!mentionCandidates.length){ popup.classList.remove('active'); return; }
   mentionActiveIndex = 0;
   popup.innerHTML = '';

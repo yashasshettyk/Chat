@@ -445,21 +445,50 @@
   .file-chip-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
   .file-chip-size{ font-size:11px; font-weight:500; opacity:0.65; letter-spacing:0.2px; }
 
-  .progress-msg{ width:180px; }
-  .progress-box{ width:100%; height:110px; background:linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
-  @keyframes shimmer{ 0%{ background-position:100% 0; } 100%{ background-position:0 0; } }
-  .progress-text{ font-size:11.5px; color:var(--muted); margin-top:7px; display:flex; justify-content:space-between; }
-  .progress-bar-track{ height:4px; background:var(--border); border-radius:2px; margin-top:4px; overflow:hidden; }
-  .progress-bar-fill{ height:100%; background:var(--accent); width:0%; transition:width .2s ease; }
+  .progress-msg{ width:184px; }
+  .progress-box{
+    --progress-glow: var(--accent);
+    position:relative; width:100%; height:112px; border-radius:12px; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; isolation:isolate;
+    background:
+      radial-gradient(circle at 50% 45%, rgba(127,127,127,0.18), transparent 65%),
+      linear-gradient(145deg, var(--surface-2), var(--surface));
+  }
+  /* fast diagonal light-streaks racing through the panel = "hypersonic" motion cue */
+  .progress-box::before, .progress-box::after{
+    content:''; position:absolute; inset:-30% -70%;
+    background:repeating-linear-gradient(96deg, transparent 0 16px, var(--progress-glow) 16px 18px, transparent 18px 40px);
+    opacity:0.28; animation:hyperStreak .55s linear infinite; will-change:transform;
+  }
+  .progress-box::after{ inset:-45% -90%; opacity:0.14; animation-duration:.85s; animation-direction:reverse; }
+  @keyframes hyperStreak{ from{ transform:translateX(0); } to{ transform:translateX(-40px); } }
+  .progress-icon-wrap{ position:relative; width:42px; height:42px; display:flex; align-items:center; justify-content:center; z-index:1; }
+  .progress-icon-wrap::before, .progress-icon-wrap::after{
+    content:''; position:absolute; inset:0; border-radius:50%; border:1.5px solid var(--progress-glow);
+    animation:progressRingPulse 1.15s ease-out infinite;
+  }
+  .progress-icon-wrap::after{ animation-delay:.4s; }
+  @keyframes progressRingPulse{ 0%{ transform:scale(0.55); opacity:0.9; } 100%{ transform:scale(1.9); opacity:0; } }
+  .progress-icon-wrap .material-symbols-outlined{ position:relative; z-index:1; font-size:22px; color:var(--progress-glow); filter:drop-shadow(0 0 5px var(--progress-glow)); }
+  .progress-text{ font-size:11px; color:var(--muted); margin-top:8px; display:flex; justify-content:space-between; align-items:center; font-family:'IBM Plex Mono', monospace; letter-spacing:0.02em; }
+  .progress-label{ text-transform:uppercase; font-size:10.5px; opacity:0.8; }
+  .progress-pct{ font-weight:700; color:var(--progress-glow); text-shadow:0 0 8px var(--progress-glow); }
+  .progress-bar-track{ height:5px; background:var(--border); border-radius:3px; margin-top:5px; overflow:hidden; position:relative; }
+  .progress-bar-fill{ position:relative; height:100%; border-radius:3px; background:var(--progress-glow); width:0%; transition:width .18s cubic-bezier(.2,.8,.2,1); box-shadow:0 0 9px 1px var(--progress-glow); overflow:hidden; }
+  /* a bright comet-head sweeps across the filled portion for a premium "in motion" feel */
+  .progress-bar-fill::after{ content:''; position:absolute; inset:0; width:40%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.85) 50%, transparent); animation:progressComet 1s linear infinite; }
+  @keyframes progressComet{ 0%{ transform:translateX(-120%); } 100%{ transform:translateX(280%); } }
+  .msg.me .progress-box{ --progress-glow: var(--bubble-me-text); }
   .msg.me .progress-text{ color:var(--bubble-me-text); opacity:0.85; }
   .msg.me .progress-bar-track{ background:rgba(0,0,0,0.24); }
-  .msg.me .progress-bar-fill{ background:var(--bubble-me-text); }
-  .msg.paused .progress-box{ opacity:0.5; }
+  .msg.paused .progress-box{ --progress-glow: var(--danger); opacity:0.6; }
+  .msg.paused .progress-box::before, .msg.paused .progress-box::after,
+  .msg.paused .progress-icon-wrap::before, .msg.paused .progress-icon-wrap::after,
+  .msg.paused .progress-bar-fill::after{ animation-play-state:paused; }
   .msg.paused .progress-label{ color:var(--danger); opacity:1; }
-  .msg.me.paused .progress-bar-fill{ background:var(--danger); }
-  .msg.them.paused .progress-bar-fill{ background:var(--muted); }
   .progress-cancel-btn{ position:absolute; top:7px; right:7px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,0.32); color:#fff; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; z-index:2; }
   .progress-cancel-btn:hover{ background:rgba(0,0,0,0.5); }
+
 
   .composer{ background:var(--surface); border:1px solid var(--border); border-radius:0 0 16px 16px; padding:10px; display:flex; gap:8px; align-items:center; }
   .composer input{ flex:1; }
@@ -1435,6 +1464,30 @@ function scrollMessagesToBottom(){
   requestAnimationFrame(()=>{ box.scrollTop = box.scrollHeight; });
 }
 
+/* ---------------- scroll-intent lock ----------------
+   File transfers can push a progress update many times a second. Naively
+   re-pinning scrollTop to the bottom on every single one fights any
+   manual scroll the user is doing (wheel/touch/drag) — the chat feels
+   like it "sticks"/flickers and won't let go. This tracks genuine user
+   scroll gestures on the messages list and, while one is in progress (or
+   just finished), suppresses programmatic auto-scrolling so the user's
+   own scrolling always wins. It clears shortly after the gesture ends so
+   normal "stick to bottom on new message" behavior resumes. */
+let userScrollLock = false;
+let userScrollLockTimer = null;
+function markUserScrollIntent(){
+  userScrollLock = true;
+  clearTimeout(userScrollLockTimer);
+  userScrollLockTimer = setTimeout(()=>{ userScrollLock = false; }, 650);
+}
+(function initScrollLock(){
+  const box = document.getElementById('messages');
+  if(!box) return;
+  ['wheel','touchstart','touchmove','pointerdown'].forEach(evt=>{
+    box.addEventListener(evt, markUserScrollIntent, {passive:true});
+  });
+})();
+
 /* iOS Safari has a long-standing quirk: even though our layout is sized to
    visualViewport and body.chat-mode has overflow:hidden, focusing a text
    input still makes Safari auto-scroll the *layout* viewport to "reveal"
@@ -2040,19 +2093,22 @@ function addProgressMessage(buf){
       <span class="material-symbols-outlined" style="font-size:12px;">close</span>
     </button>` : ''}
     <div class="progress-box">
-      <span class="material-symbols-outlined" style="font-size:26px;opacity:0.55;">${buf.isImage ? 'image' : 'description'}</span>
+      <div class="progress-icon-wrap">
+        <span class="material-symbols-outlined">${buf.isImage ? 'image' : 'description'}</span>
+      </div>
     </div>
     <div class="progress-text"><span class="progress-label">${verb} ${buf.isImage ? 'photo' : 'file'}…</span><span class="progress-pct">0%</span></div>
     <div class="progress-bar-track"><div class="progress-bar-fill"></div></div>
     ${buf.sizeLabel ? `<div class="progress-text" style="justify-content:center;opacity:0.75;"><span>${buf.sizeLabel}</span></div>` : ''}
   `;
-  const wasNearBottom = mine || isNearBottom(box);
+  const wasNearBottom = mine || (!userScrollLock && isNearBottom(box));
   box.appendChild(el);
   if(wasNearBottom) box.scrollTop = box.scrollHeight;
   renderIcons(el);
   return el;
 }
 let progressScrollQueued = false;
+let lastProgressScrollTs = 0;
 function updateProgressMessage(buf){
   if(!buf.el) return;
   const pct = Math.round((buf.received / buf.total) * 100);
@@ -2062,13 +2118,18 @@ function updateProgressMessage(buf){
   if(fillEl) fillEl.style.width = pct + '%';
   // Progress updates can fire many times a second while a file is coming
   // in. Forcing scrollTop on every single one fights any scroll the user
-  // is doing by hand (it feels like the chat "sticks"/glitches). Collapse
-  // repeated requests into at most one scroll write per animation frame,
+  // is doing by hand (it feels like the chat "sticks"/glitches). Bail
+  // immediately if the user is mid-gesture, and otherwise collapse
+  // repeated requests into at most one scroll write roughly every 200ms,
   // and only when the user is actually parked near the bottom already.
-  if(progressScrollQueued) return;
+  if(userScrollLock) return;
+  const now = performance.now();
+  if(progressScrollQueued || now - lastProgressScrollTs < 200) return;
   progressScrollQueued = true;
   requestAnimationFrame(()=>{
     progressScrollQueued = false;
+    lastProgressScrollTs = performance.now();
+    if(userScrollLock) return;
     const box = document.getElementById('messages');
     if(isNearBottom(box)) box.scrollTop = box.scrollHeight;
   });
@@ -2099,7 +2160,7 @@ function finalizeIncomingFile(buf, dataUrl, msgId){
     el.innerHTML = `<div class="who">${escapeHtml(buf.name)}</div>` + fileChipHtml(buf.fileName || 'File', dataUrl, buf.sizeLabel) + (time?`<div class="time">${time}</div>`:'');
   }
   attachMessageActions(el, false, msgId, false, preview);
-  if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
+  if(!userScrollLock && isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
   renderIcons(el);
 }
 
@@ -2117,7 +2178,7 @@ function finalizeSentFile(buf, dataUrl, msgId){
     el.innerHTML = fileChipHtml(buf.fileName || 'File', dataUrl, buf.sizeLabel) + (time?`<div class="time">${time}</div>`:'');
   }
   attachMessageActions(el, false, msgId, true, preview);
-  if(isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
+  if(!userScrollLock && isNearBottom(document.getElementById('messages'))) scrollMessagesToBottom();
   renderIcons(el);
 }
 

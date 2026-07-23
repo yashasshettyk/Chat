@@ -563,8 +563,8 @@
   .progress-label{ text-transform:uppercase; font-size:10.5px; opacity:0.8; display:flex; align-items:center; gap:4px; }
   .progress-label .material-symbols-outlined{ font-size:12px; color:var(--progress-glow); }
   .progress-pct{ font-weight:700; color:var(--progress-glow); text-shadow:0 0 8px var(--progress-glow); }
-  .progress-bar-track{ height:7px; background:rgba(120,120,145,0.2); border:1px solid var(--border); border-radius:4px; margin-top:6px; overflow:hidden; position:relative; box-shadow:inset 0 1px 3px rgba(0,0,0,0.16); }
-  .progress-bar-fill{ position:relative; height:100%; border-radius:4px; background:linear-gradient(90deg, var(--progress-glow), var(--progress-glow-2)); width:0%; min-width:0; transition:width .18s cubic-bezier(.2,.8,.2,1); box-shadow:0 0 10px 2px var(--progress-glow), inset 0 1px 0 rgba(255,255,255,0.4); overflow:hidden; }
+  .progress-bar-track{ height:7px; background:rgba(0,0,0,0.22); border:1px solid var(--border); border-radius:4px; margin-top:6px; overflow:hidden; position:relative; box-shadow:inset 0 1px 3px rgba(0,0,0,0.25); }
+  .progress-bar-fill{ position:relative; height:100%; border-radius:4px; background:linear-gradient(90deg, var(--progress-glow), var(--progress-glow-2)); width:0%; min-width:0; transition:width .18s cubic-bezier(.2,.8,.2,1); box-shadow:inset 0 1px 0 rgba(255,255,255,0.4); overflow:hidden; }
   /* a bright comet-head sweeps across the filled portion for a premium "in motion" feel */
   .progress-bar-fill::after{ content:''; position:absolute; inset:0; width:40%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.85) 50%, transparent); animation:progressComet 1s linear infinite; }
   @keyframes progressComet{ 0%{ transform:translateX(-120%); } 100%{ transform:translateX(280%); } }

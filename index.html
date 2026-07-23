@@ -317,18 +317,31 @@
   }
   .voice-avatar-circle{
     position:relative; width:30px; height:30px; border-radius:50%;
-    background:var(--avatar-bg, var(--accent-soft)); color:var(--avatar-color, var(--accent));
+    background:
+      radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--avatar-color, var(--accent)) 55%, white 15%) 0%, var(--avatar-bg, var(--accent-soft)) 60%);
+    color:var(--avatar-color, var(--accent));
     font-weight:700; font-size:11.5px;
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
-    transition:box-shadow .2s ease, transform .2s ease;
-    box-shadow:0 4px 12px -5px rgba(10,15,25,0.5), 0 0 0 1.5px color-mix(in srgb, var(--avatar-color, var(--accent)) 55%, transparent);
+    transition:box-shadow .25s ease, transform .25s ease;
+    box-shadow:
+      0 4px 10px -4px rgba(10,15,25,0.55),
+      0 0 0 1px color-mix(in srgb, var(--avatar-color, var(--accent)) 30%, transparent) inset,
+      0 0 0 1px rgba(255,255,255,0.06) inset;
   }
-  /* Soft outer halo sits fully behind the circle (never clipped, never
-     overlapping the face content) — pure ambient glow, no inner cut. */
+  /* Ambient bloom — a soft, fully blurred halo sitting well outside the
+     circle's edge (never touching it), so the color reads as light cast
+     into the room rather than a ring painted on the avatar. */
   .voice-avatar-circle::before{
-    content:''; position:absolute; inset:-16px; border-radius:50%; z-index:-1;
-    background:radial-gradient(circle, color-mix(in srgb, var(--avatar-color, var(--accent)) 70%, transparent) 0%, color-mix(in srgb, var(--avatar-color, var(--accent)) 25%, transparent) 45%, transparent 72%);
-    opacity:0; transform:scale(0.7); transition:opacity .3s ease, transform .3s ease;
+    content:''; position:absolute; inset:-20px; border-radius:50%; z-index:-1;
+    background:radial-gradient(circle, color-mix(in srgb, var(--avatar-color, var(--accent)) 65%, transparent) 0%, color-mix(in srgb, var(--avatar-color, var(--accent)) 22%, transparent) 42%, transparent 70%);
+    filter:blur(4px);
+    opacity:0; transform:scale(0.6); transition:opacity .35s ease, transform .35s ease;
+  }
+  /* Fine glassy highlight for a premium, dimensional finish. */
+  .voice-avatar-circle::after{
+    content:''; position:absolute; inset:0; border-radius:50%; pointer-events:none;
+    background:radial-gradient(circle at 34% 26%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 45%);
+    mix-blend-mode:overlay; opacity:.8;
   }
   .voice-avatar-circle .material-symbols-outlined{ font-size:12px; }
   .voice-avatar-name{
@@ -340,21 +353,32 @@
   }
   .voice-avatar.muted .voice-avatar-circle{ opacity:.55; }
   .voice-avatar-circle.speaking{
-    transform:scale(1.12);
-    box-shadow:0 4px 12px -5px rgba(10,15,25,0.5), 0 0 0 2px var(--avatar-color, var(--online));
-    animation:voiceSpeakPulse 1.1s ease-in-out infinite;
+    transform:scale(1.1);
+    animation:voiceSpeakPulse 1.7s ease-in-out infinite;
   }
   .voice-avatar-circle.speaking::before{
     opacity:1; transform:scale(1);
-    animation:voiceHaloPulse 1.1s ease-in-out infinite;
+    animation:voiceHaloPulse 1.7s ease-in-out infinite;
   }
   @keyframes voiceSpeakPulse{
-    0%,100%{ box-shadow:0 4px 12px -5px rgba(10,15,25,0.5), 0 0 0 2px var(--avatar-color, var(--online)); }
-    50%{ box-shadow:0 4px 12px -5px rgba(10,15,25,0.5), 0 0 0 3px var(--avatar-color, var(--online)); }
+    0%,100%{
+      box-shadow:
+        0 4px 10px -4px rgba(10,15,25,0.55),
+        0 0 0 1px color-mix(in srgb, var(--avatar-color, var(--online)) 55%, transparent) inset,
+        0 0 0 1px rgba(255,255,255,0.06) inset,
+        0 0 10px 1px color-mix(in srgb, var(--avatar-color, var(--online)) 55%, transparent);
+    }
+    50%{
+      box-shadow:
+        0 4px 10px -4px rgba(10,15,25,0.55),
+        0 0 0 1px color-mix(in srgb, var(--avatar-color, var(--online)) 70%, transparent) inset,
+        0 0 0 1px rgba(255,255,255,0.08) inset,
+        0 0 16px 3px color-mix(in srgb, var(--avatar-color, var(--online)) 70%, transparent);
+    }
   }
   @keyframes voiceHaloPulse{
-    0%,100%{ opacity:.75; transform:scale(0.92); }
-    50%{ opacity:1; transform:scale(1.08); }
+    0%,100%{ opacity:.7; transform:scale(0.85); }
+    50%{ opacity:1; transform:scale(1.05); }
   }
 
   /* ---------------- connecting / retrieving-information overlay ---------------- */

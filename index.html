@@ -288,51 +288,72 @@
   .conn-banner.active{ display:flex; }
   .conn-banner.retry{ cursor:pointer; color:var(--accent); font-weight:600; }
 
-  /* ---------------- floating voice-chat speaker avatars ---------------- */
+  /* ---------------- floating voice-chat speaker avatars ----------------
+     No wrapping card/pill anymore — each participant is a free-floating
+     bubble + name, gently bobbing, docked to the bottom-left of the chat.
+     Every avatar gets its own unique "premium" accent color (assigned in
+     JS via --avatar-color / --avatar-bg) which drives its speaking glow. */
   .voice-avatars-bar{
-    display:none; align-items:center; gap:10px;
-    position:absolute; top:12px; left:50%; z-index:20;
-    max-width:calc(100% - 28px); overflow-x:auto;
-    padding:8px 14px; border-radius:999px;
-    background:color-mix(in srgb, var(--surface) 58%, transparent);
-    -webkit-backdrop-filter:blur(18px) saturate(180%);
-    backdrop-filter:blur(18px) saturate(180%);
-    border:1px solid color-mix(in srgb, var(--border) 65%, transparent);
-    box-shadow:0 10px 30px -10px rgba(20,30,50,0.28), 0 1px 0 rgba(255,255,255,0.35) inset;
+    display:none; align-items:flex-end; gap:16px;
+    position:absolute; left:14px; bottom:14px; z-index:20;
+    max-width:calc(100% - 28px); overflow-x:auto; overflow-y:visible;
+    padding:6px 4px; background:transparent; border:none; box-shadow:none;
     opacity:0; pointer-events:none;
-    transform:translateX(-50%) translateY(-10px) scale(0.96);
+    transform:translateY(14px);
     transition:opacity .28s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1);
     scrollbar-width:none;
   }
   .voice-avatars-bar::-webkit-scrollbar{ display:none; }
   .voice-avatars-bar.active{
     display:flex; opacity:1; pointer-events:auto;
-    transform:translateX(-50%) translateY(0) scale(1);
-    animation:voiceBarFloat 4s ease-in-out infinite;
+    transform:translateY(0);
   }
-  @keyframes voiceBarFloat{
-    0%,100%{ transform:translateX(-50%) translateY(0) scale(1); }
-    50%{ transform:translateX(-50%) translateY(-3px) scale(1); }
+  .voice-avatar{
+    display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0;
+    animation:voiceAvatarFloat 3.6s ease-in-out infinite;
+    animation-delay:calc(var(--float-delay, 0) * 1s);
   }
-  .voice-avatar{ display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; }
+  @keyframes voiceAvatarFloat{
+    0%,100%{ transform:translateY(0); }
+    50%{ transform:translateY(-8px); }
+  }
   .voice-avatar-circle{
-    position:relative; width:32px; height:32px; border-radius:50%;
-    background:var(--accent-soft); color:var(--accent); font-weight:700; font-size:12px;
+    position:relative; width:42px; height:42px; border-radius:50%;
+    background:var(--avatar-bg, var(--accent-soft)); color:var(--avatar-color, var(--accent));
+    font-weight:700; font-size:14px;
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
-    transition:box-shadow .15s ease, transform .15s ease;
-    box-shadow:0 0 0 2px color-mix(in srgb, var(--border) 80%, transparent);
+    transition:box-shadow .2s ease, transform .2s ease;
+    box-shadow:0 6px 16px -6px rgba(10,15,25,0.45), 0 0 0 1.5px color-mix(in srgb, var(--avatar-color, var(--accent)) 55%, transparent);
+  }
+  .voice-avatar-circle::before{
+    content:''; position:absolute; inset:-7px; border-radius:50%; z-index:-1;
+    background:conic-gradient(from 0deg, var(--avatar-color, var(--accent)), transparent 35%, var(--avatar-color, var(--accent)) 65%, transparent 95%);
+    filter:blur(7px); opacity:0; transition:opacity .25s ease;
   }
   .voice-avatar-circle .material-symbols-outlined{ font-size:14px; }
-  .voice-avatar-name{ font-size:9.5px; color:var(--muted); max-width:44px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .voice-avatar-name{
+    font-size:10px; font-weight:600; color:var(--text); max-width:56px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 4px rgba(0,0,0,0.4);
+    padding:2px 7px; border-radius:999px;
+    background:color-mix(in srgb, var(--surface) 55%, transparent);
+    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  }
   .voice-avatar.muted .voice-avatar-circle{ opacity:.55; }
   .voice-avatar-circle.speaking{
-    box-shadow:0 0 0 2px var(--online), 0 0 0 5px color-mix(in srgb, var(--online) 30%, transparent);
-    transform:scale(1.1);
-    animation:voiceSpeakPulse 1s ease-in-out infinite;
+    transform:scale(1.16);
+    animation:voiceSpeakGlow 1.1s ease-in-out infinite;
   }
-  @keyframes voiceSpeakPulse{
-    0%,100%{ box-shadow:0 0 0 2px var(--online), 0 0 0 5px color-mix(in srgb, var(--online) 30%, transparent); }
-    50%{ box-shadow:0 0 0 2px var(--online), 0 0 0 8px color-mix(in srgb, var(--online) 12%, transparent); }
+  .voice-avatar-circle.speaking::before{
+    opacity:.85; animation:voiceRingSpin 2.4s linear infinite;
+  }
+  @keyframes voiceRingSpin{ to{ transform:rotate(360deg); } }
+  @keyframes voiceSpeakGlow{
+    0%,100%{
+      box-shadow:0 6px 16px -6px rgba(10,15,25,0.45), 0 0 0 2px var(--avatar-color, var(--online)), 0 0 16px 3px color-mix(in srgb, var(--avatar-color, var(--online)) 60%, transparent), 0 0 30px 9px color-mix(in srgb, var(--avatar-color, var(--online)) 30%, transparent);
+    }
+    50%{
+      box-shadow:0 6px 16px -6px rgba(10,15,25,0.45), 0 0 0 2px var(--avatar-color, var(--online)), 0 0 24px 6px color-mix(in srgb, var(--avatar-color, var(--online)) 75%, transparent), 0 0 46px 15px color-mix(in srgb, var(--avatar-color, var(--online)) 45%, transparent);
+    }
   }
 
   /* ---------------- connecting / retrieving-information overlay ---------------- */
@@ -3225,12 +3246,38 @@ function initialsFor(name){
   return ((name || '').trim().slice(0,1).toUpperCase()) || '?';
 }
 
+/* Unique, premium jewel-tone palette — each speaker is deterministically
+   assigned one of these based on their name/id, so their glow color stays
+   consistent across the session (and across everyone's screens). */
+const VOICE_AVATAR_PALETTE = [
+  '#7C5CFF', // violet
+  '#FF6FA5', // rose
+  '#2FD1C5', // teal
+  '#FFB648', // amber
+  '#4FA8FF', // azure
+  '#FF7A59', // coral
+  '#39D98A', // emerald
+  '#E056FD', // orchid
+  '#FFD34D', // gold
+  '#5CD3FF', // sky
+];
+function colorForVoiceAvatar(key, name){
+  const str = String(key === 'me' ? (name || 'me') : (name || key));
+  let hash = 0;
+  for(let i = 0; i < str.length; i++){ hash = (hash * 31 + str.charCodeAt(i)) >>> 0; }
+  return VOICE_AVATAR_PALETTE[hash % VOICE_AVATAR_PALETTE.length];
+}
+
 function addVoiceAvatar(key, name, stream){
   const bar = document.getElementById('voiceAvatarsBar');
   if(!document.getElementById('voiceAvatar-' + key)){
     const wrap = document.createElement('div');
     wrap.className = 'voice-avatar';
     wrap.id = 'voiceAvatar-' + key;
+    const color = colorForVoiceAvatar(key, name);
+    wrap.style.setProperty('--avatar-color', color);
+    wrap.style.setProperty('--avatar-bg', color + '26');
+    wrap.style.setProperty('--float-delay', (Math.random() * 1.8).toFixed(2));
     wrap.innerHTML = `<div class="voice-avatar-circle" id="voiceAvatarCircle-${key}">${escapeHtml(initialsFor(name))}</div><div class="voice-avatar-name">${escapeHtml(key==='me' ? 'You' : name)}</div>`;
     bar.appendChild(wrap);
   }

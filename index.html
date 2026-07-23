@@ -661,6 +661,54 @@
   #sketchCanvas{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:crosshair; }
   .sketch-shape-preview{ position:absolute; inset:0; pointer-events:none; }
   .sketch-text-input{ position:absolute; z-index:8; background:transparent; border:1.5px dashed rgba(255,255,255,0.55); border-radius:4px; padding:2px 4px; outline:none; font-family:'Space Grotesk',sans-serif; min-width:40px; resize:none; overflow:hidden; }
+  .sketch-text-input.b{ font-weight:700; }
+  .sketch-text-input.i{ font-style:italic; }
+
+  /* ---------- sketch: text style toggles, grid tool, floating
+     selection toolbar, and the rows/cols popup ---------- */
+  .sketch-tool-btn.toggle-b span{ font-weight:800; }
+  .sketch-tool-btn.toggle-i span{ font-style:italic; }
+  .sketch-grid-popup{
+    position:absolute; z-index:9; left:50%; top:50%; transform:translate(-50%,-50%);
+    background:#1b212b; border:1px solid rgba(255,255,255,0.14); border-radius:14px;
+    padding:18px; width:230px; box-shadow:0 20px 60px -20px rgba(0,0,0,0.7);
+    display:none; flex-direction:column; gap:12px; font-family:'Space Grotesk',sans-serif;
+  }
+  .sketch-grid-popup.active{ display:flex; }
+  .sketch-grid-popup h4{ margin:0; color:#e7e9ec; font-size:14px; }
+  .sketch-grid-field{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .sketch-grid-field label{ color:#8b93a0; font-size:12.5px; }
+  .sketch-grid-field input{
+    width:64px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16);
+    border-radius:8px; color:#e7e9ec; font-size:13px; padding:6px 8px; text-align:center;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .sketch-grid-actions{ display:flex; gap:8px; margin-top:2px; }
+  .sketch-grid-actions button{
+    flex:1; border:none; border-radius:9px; padding:9px 0; font-size:13px; cursor:pointer;
+    font-family:'Space Grotesk',sans-serif; font-weight:600;
+  }
+  .sketch-grid-cancel{ background:rgba(255,255,255,0.1); color:#e7e9ec; }
+  .sketch-grid-create{ background:var(--accent); color:var(--on-accent); }
+  .sketch-grid-cell-input{
+    position:absolute; z-index:8; background:rgba(0,0,0,0.28); border:1.5px dashed rgba(255,255,255,0.55);
+    border-radius:3px; padding:2px 4px; outline:none; font-family:'Space Grotesk',sans-serif;
+    resize:none; overflow:hidden; color:#fff;
+  }
+  .sketch-float-toolbar{
+    position:absolute; z-index:9; display:none; align-items:center; gap:6px;
+    background:rgba(18,22,29,0.92); border:1px solid rgba(255,255,255,0.14); border-radius:10px;
+    padding:6px; box-shadow:0 10px 30px -12px rgba(0,0,0,0.7); pointer-events:auto;
+  }
+  .sketch-float-toolbar.active{ display:flex; }
+  .sketch-float-toolbar button{
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); color:#e7e9ec;
+    width:28px; height:28px; border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .sketch-float-toolbar button:hover{ background:rgba(255,255,255,0.18); }
+  .sketch-float-toolbar button.danger:hover{ background:var(--danger); border-color:var(--danger); }
+  .sketch-opacity-row{ display:flex; align-items:center; gap:6px; padding:0 4px; }
+  .sketch-opacity-row input{ width:60px; accent-color:var(--accent); cursor:pointer; }
 
   /* ---------- mobile: full-screen chat, WhatsApp-style ---------- */
   @media (max-width:700px){
@@ -993,6 +1041,13 @@
       <canvas id="sketchCanvas"></canvas>
       <svg class="sketch-shape-preview" id="sketchShapePreview"></svg>
     </div>
+    <!-- floating context toolbar: appears above whatever is currently selected -->
+    <div class="sketch-float-toolbar" id="sketchFloatToolbar">
+      <button id="sketchLayerFrontBtn" title="Bring to front"><span class="material-symbols-outlined" style="font-size:15px;">flip_to_front</span></button>
+      <button id="sketchLayerBackBtn" title="Send to back"><span class="material-symbols-outlined" style="font-size:15px;">flip_to_back</span></button>
+      <button id="sketchDuplicateBtn" title="Duplicate"><span class="material-symbols-outlined" style="font-size:15px;">content_copy</span></button>
+      <button id="sketchDeleteSelBtn" class="danger" title="Delete (Del)"><span class="material-symbols-outlined" style="font-size:15px;">delete</span></button>
+    </div>
   </div>
   <div class="sketch-toolbar">
     <div class="sketch-toolbar-row">
@@ -1016,11 +1071,21 @@
       <button class="sketch-tool-btn" id="sketchTextBtn" title="Add text">
         <span class="material-symbols-outlined" style="font-size:16px;">title</span>
       </button>
-      <button class="sketch-tool-btn" id="sketchSelectBtn" title="Select / move / resize">
+      <button class="sketch-tool-btn" id="sketchGridBtn" title="Insert grid / table">
+        <span class="material-symbols-outlined" style="font-size:16px;">grid_on</span>
+      </button>
+      <button class="sketch-tool-btn" id="sketchSelectBtn" title="Select / move / resize / rotate">
         <span class="material-symbols-outlined" style="font-size:16px;">open_with</span>
       </button>
       <button class="sketch-tool-btn" id="sketchEraserBtn" title="Eraser">
         <span class="material-symbols-outlined" style="font-size:16px;">ink_eraser</span>
+      </button>
+      <div class="sketch-sep"></div>
+      <button class="sketch-tool-btn" id="sketchBoldBtn" title="Bold text">
+        <span class="material-symbols-outlined" style="font-size:16px;">format_bold</span>
+      </button>
+      <button class="sketch-tool-btn" id="sketchItalicBtn" title="Italic text">
+        <span class="material-symbols-outlined" style="font-size:16px;">format_italic</span>
       </button>
     </div>
     <div class="sketch-toolbar-row">
@@ -1035,12 +1100,41 @@
       <div class="sketch-sep"></div>
       <div class="sketch-colors" id="sketchBgColors" title="Board background"></div>
       <div class="sketch-sep"></div>
-      <button class="sketch-tool-btn" id="sketchUndoBtn" title="Undo your last stroke">
+      <div class="sketch-opacity-row" title="Opacity">
+        <span class="material-symbols-outlined" style="font-size:15px;color:#8b93a0;">opacity</span>
+        <input type="range" id="sketchOpacity" min="10" max="100" value="100">
+      </div>
+      <div class="sketch-sep"></div>
+      <button class="sketch-tool-btn" id="sketchUndoBtn" title="Undo (Ctrl+Z)">
         <span class="material-symbols-outlined" style="font-size:16px;">undo</span>
+      </button>
+      <button class="sketch-tool-btn" id="sketchRedoBtn" title="Redo (Ctrl+Shift+Z)">
+        <span class="material-symbols-outlined" style="font-size:16px;">redo</span>
       </button>
       <button class="sketch-tool-btn" id="sketchClearBtn" title="Clear board">
         <span class="material-symbols-outlined" style="font-size:16px;">delete_forever</span>
       </button>
+    </div>
+  </div>
+
+  <!-- rows/cols popup for the grid tool -->
+  <div class="sketch-grid-popup" id="sketchGridPopup">
+    <h4>Insert grid</h4>
+    <div class="sketch-grid-field">
+      <label>Rows</label>
+      <input type="number" id="sketchGridRows" min="1" max="30" value="4">
+    </div>
+    <div class="sketch-grid-field">
+      <label>Columns</label>
+      <input type="number" id="sketchGridCols" min="1" max="20" value="4">
+    </div>
+    <div class="sketch-grid-field">
+      <label>Header row</label>
+      <input type="checkbox" id="sketchGridHeader" checked>
+    </div>
+    <div class="sketch-grid-actions">
+      <button class="sketch-grid-cancel" id="sketchGridCancelBtn">Cancel</button>
+      <button class="sketch-grid-create" id="sketchGridCreateBtn">Insert</button>
     </div>
   </div>
 </div>
@@ -2245,6 +2339,26 @@ async function handleIncoming(raw, fromConnId){
     sketchApplyText(obj);
     if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
   }
+  else if(obj.type === 'sketch-grid'){
+    sketchApplyGrid(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-cell'){
+    sketchApplyCell(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-style'){
+    sketchApplyStyle(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-restore'){
+    sketchApplyRestore(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
+  else if(obj.type === 'sketch-reorder'){
+    sketchApplyReorder(obj);
+    if(state.isHost && fromConnId){ await relayToOthers(fromConnId, raw); }
+  }
   else if(obj.type === 'sketch-sync' && !state.isHost){
     sketchApplySync(obj);
   }
@@ -3364,7 +3478,18 @@ function voiceLevelLoop(){
    own strokes to the host, the host applies them locally and relays to
    everyone else. The host also keeps the full stroke list as the source of
    truth and pushes a one-time 'sketch-sync' to anyone who joins mid-session,
-   so latecomers see everything drawn so far. */
+   so latecomers see everything drawn so far.
+
+   ---- undo/redo ----
+   Undo is step-based, not "delete whatever I made last": every action I
+   take (creating a stroke, moving/resizing/rotating one, restyling one,
+   editing a grid cell, deleting one) is pushed onto sketchHistory as a
+   small { kind, ...before/after } record. Undo pops the most recent record
+   and reverses exactly that action — a move goes back to where the shape
+   was, a resize goes back to its old size, and only a genuine "create"
+   undo removes the shape. Each undo is pushed onto sketchRedoStack so redo
+   can replay it. Starting a brand-new action clears the redo stack, same
+   as any normal editor. */
 const SKETCH_COLORS = ['#1c2733','#e0575c','#2f8fdd','#3fae5c','#f0a63e','#8b6fd9','#e8618c','#ffffff'];
 const SKETCH_BG_COLORS = ['#ffffff','#12161d','#f4ecd8','#eaf2ff','#132a1c'];
 const SKETCH_ASPECT = 16/9; // fixed "page" shape everyone draws onto, so
@@ -3374,13 +3499,16 @@ let sketchById = new Map();       // id -> stroke, for fast lookup while drawing
 let sketchColor = SKETCH_COLORS[0];
 let sketchBgColor = SKETCH_BG_COLORS[0];
 let sketchSize = 4;
+let sketchOpacity = 1;            // 0..1, applied to new strokes/shapes/text/grids
 let sketchEraser = false;
-let sketchTool = 'pen';           // 'pen' | 'line' | 'rect' | 'ellipse' | 'select' | 'text'
+let sketchTool = 'pen';           // 'pen' | 'line' | 'rect' | 'ellipse' | 'select' | 'text' | 'grid'
 let sketchFill = false;
-let sketchMyStrokeIds = [];       // ids of strokes/shapes/text *I* created, in order —
-                                   // powers "undo my last stroke" without touching
-                                   // anything someone else drew
+let sketchBold = false;
+let sketchItalic = false;
+let sketchHistory = [];           // step-based undo stack, my actions only — see note above
+let sketchRedoStack = [];
 let sketchTextEditor = null;      // the live <textarea> overlay while typing a text box
+let sketchGridCellEditor = null;  // the live <textarea> overlay while typing into a grid cell
 let shapeStart = null;            // start point while dragging a shape tool
 let localStroke = null;           // the freehand stroke currently being drawn by me
 let sketchPendingPts = [];        // points drawn locally since the last network flush
@@ -3392,10 +3520,12 @@ let sketchActivePointerId = null; // only one pointer drives the board at a time
                                    // stomping on shapeStart/localStroke and getting
                                    // the board stuck mid-stroke.
 let selectedStrokeId = null;      // id of the stroke currently selected with the
-                                   // select/move/resize tool
-let selectDragMode = null;        // null | 'move' | 'tl' | 'tr' | 'bl' | 'br'
+                                   // select/move/resize/rotate tool
+let selectDragMode = null;        // null | 'move' | 'tl' | 'tr' | 'bl' | 'br' | 'rotate'
 let selectDragOrigin = null;      // normalized pointer position when the drag started
 let selectDragSnapshot = null;    // deep-copied geometry of the selected stroke at drag start
+let selectDragChanged = false;    // did the drag actually move anything (skip no-op history)
+let selectDragAngleOffset = 0;    // for rotation drags: angle(pointer) - stroke.rotation at drag start
 
 function sketchModalOpen(){ return document.getElementById('sketchModal').classList.contains('active'); }
 function sketchCanvasEl(){ return document.getElementById('sketchCanvas'); }
@@ -3426,6 +3556,7 @@ function resizeSketchCanvas(){
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   redrawSketch();
+  if(selectedStrokeId) renderSelectionOverlay();
 }
 function toggleSketchRotate(){
   sketchViewRotated = !sketchViewRotated;
@@ -3436,6 +3567,53 @@ function toggleSketchRotate(){
   requestAnimationFrame(resizeSketchCanvas);
 }
 
+/* ---- geometry helpers shared by drawing, hit-testing and rotation ---- */
+function rotatePointAround(px, py, cx, cy, angle){
+  if(!angle) return [px, py];
+  const s = Math.sin(angle), c = Math.cos(angle);
+  const dx = px - cx, dy = py - cy;
+  return [cx + dx*c - dy*s, cy + dx*s + dy*c];
+}
+function rawBBox(stroke){
+  if(stroke.type === 'shape'){
+    return [
+      Math.min(stroke.p0[0], stroke.p1[0]), Math.min(stroke.p0[1], stroke.p1[1]),
+      Math.max(stroke.p0[0], stroke.p1[0]), Math.max(stroke.p0[1], stroke.p1[1])
+    ];
+  }
+  if(stroke.type === 'text'){
+    const [w,h] = sketchCssSize();
+    const [tw,th] = measureTextStroke(stroke);
+    return [stroke.p[0], stroke.p[1], stroke.p[0] + tw/w, stroke.p[1] + th/h];
+  }
+  if(stroke.type === 'grid'){
+    return [
+      Math.min(stroke.p0[0], stroke.p1[0]), Math.min(stroke.p0[1], stroke.p1[1]),
+      Math.max(stroke.p0[0], stroke.p1[0]), Math.max(stroke.p0[1], stroke.p1[1])
+    ];
+  }
+  let minX=1, minY=1, maxX=0, maxY=0;
+  (stroke.pts||[]).forEach(([x,y])=>{
+    if(x<minX) minX=x; if(y<minY) minY=y;
+    if(x>maxX) maxX=x; if(y>maxY) maxY=y;
+  });
+  if(maxX < minX){ minX=0; minY=0; maxX=1; maxY=1; }
+  return [minX, minY, maxX, maxY];
+}
+function strokeCenter(stroke){
+  const [minX,minY,maxX,maxY] = rawBBox(stroke);
+  return [(minX+maxX)/2, (minY+maxY)/2];
+}
+// Rotate a page-space point into a stroke's own unrotated local space —
+// used for hit-testing / dragging a rotated shape against its raw bbox.
+function toLocalSpace(pt, stroke){
+  const rot = stroke.rotation || 0;
+  if(!rot) return pt;
+  const [cx,cy] = strokeCenter(stroke);
+  return rotatePointAround(pt[0], pt[1], cx, cy, -rot);
+}
+function getStrokeBBox(stroke){ return rawBBox(stroke); }
+
 function strokeStyle(ctx, stroke){
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
@@ -3443,72 +3621,160 @@ function strokeStyle(ctx, stroke){
   ctx.strokeStyle = stroke.color;
   ctx.fillStyle = stroke.color;
   ctx.lineWidth = stroke.size;
+  ctx.globalAlpha = stroke.erase ? 1 : (stroke.opacity == null ? 1 : stroke.opacity);
+}
+function withRotation(ctx, stroke, w, h, drawFn){
+  const rot = stroke.rotation || 0;
+  ctx.save();
+  if(rot){
+    const [cx,cy] = strokeCenter(stroke);
+    ctx.translate(cx*w, cy*h);
+    ctx.rotate(rot);
+    ctx.translate(-cx*w, -cy*h);
+  }
+  drawFn();
+  ctx.restore();
 }
 function drawShape(stroke, ctx, w, h){
-  const x0 = stroke.p0[0]*w, y0 = stroke.p0[1]*h, x1 = stroke.p1[0]*w, y1 = stroke.p1[1]*h;
-  ctx.save();
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.strokeStyle = stroke.color; ctx.fillStyle = stroke.color; ctx.lineWidth = stroke.size;
-  ctx.beginPath();
-  if(stroke.shape === 'line'){
-    ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
-  } else if(stroke.shape === 'rect'){
-    const rx = Math.min(x0,x1), ry = Math.min(y0,y1), rw = Math.abs(x1-x0), rh = Math.abs(y1-y0);
-    ctx.rect(rx,ry,rw,rh);
-    stroke.fill ? ctx.fill() : ctx.stroke();
-  } else if(stroke.shape === 'ellipse'){
-    const cx=(x0+x1)/2, cy=(y0+y1)/2, rx=Math.abs(x1-x0)/2, ry=Math.abs(y1-y0)/2;
-    ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
-    stroke.fill ? ctx.fill() : ctx.stroke();
-  }
-  ctx.restore();
+  withRotation(ctx, stroke, w, h, ()=>{
+    const x0 = stroke.p0[0]*w, y0 = stroke.p0[1]*h, x1 = stroke.p1[0]*w, y1 = stroke.p1[1]*h;
+    ctx.save();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
+    ctx.strokeStyle = stroke.color; ctx.fillStyle = stroke.color; ctx.lineWidth = stroke.size;
+    ctx.beginPath();
+    if(stroke.shape === 'line'){
+      ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+    } else if(stroke.shape === 'rect'){
+      const rx = Math.min(x0,x1), ry = Math.min(y0,y1), rw = Math.abs(x1-x0), rh = Math.abs(y1-y0);
+      ctx.rect(rx,ry,rw,rh);
+      stroke.fill ? ctx.fill() : ctx.stroke();
+    } else if(stroke.shape === 'ellipse'){
+      const cx=(x0+x1)/2, cy=(y0+y1)/2, rx=Math.abs(x1-x0)/2, ry=Math.abs(y1-y0)/2;
+      ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
+      stroke.fill ? ctx.fill() : ctx.stroke();
+    }
+    ctx.restore();
+  });
 }
 function sketchFontPx(stroke){ return Math.max(12, stroke.size * 5); }
+function sketchFontString(stroke){
+  const weight = stroke.bold ? '700' : '400';
+  const style = stroke.italic ? 'italic' : 'normal';
+  return `${style} ${weight} ${sketchFontPx(stroke)}px "Space Grotesk", sans-serif`;
+}
 function drawTextStroke(stroke, ctx, w, h){
-  const x = stroke.p[0]*w, y = stroke.p[1]*h;
-  ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.fillStyle = stroke.color;
-  ctx.font = sketchFontPx(stroke) + 'px "Space Grotesk", sans-serif';
-  ctx.textBaseline = 'top';
-  (stroke.text || '').split('\n').forEach((line, i)=>{
-    ctx.fillText(line, x, y + i * sketchFontPx(stroke) * 1.25);
+  withRotation(ctx, stroke, w, h, ()=>{
+    const x = stroke.p[0]*w, y = stroke.p[1]*h;
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
+    ctx.fillStyle = stroke.color;
+    ctx.font = sketchFontString(stroke);
+    ctx.textBaseline = 'top';
+    (stroke.text || '').split('\n').forEach((line, i)=>{
+      ctx.fillText(line, x, y + i * sketchFontPx(stroke) * 1.25);
+    });
+    ctx.restore();
   });
-  ctx.restore();
 }
 function measureTextStroke(stroke){
   const canvas = sketchCanvasEl();
   const ctx = canvas.getContext('2d');
   ctx.save();
-  ctx.font = sketchFontPx(stroke) + 'px "Space Grotesk", sans-serif';
+  ctx.font = sketchFontString(stroke);
   const lines = (stroke.text || '').split('\n');
   const w = Math.max(1, ...lines.map(l=> ctx.measureText(l).width));
   ctx.restore();
   return [w, lines.length * sketchFontPx(stroke) * 1.25];
 }
+/* ---- grid / table stroke ----
+   { type:'grid', p0, p1 (bbox corners), rows, cols, header (bool),
+     color (line/header text color), headerColor (fill), opacity,
+     cells: { "r_c": {text, bold, italic, color} } } */
+function gridCellRect(stroke, r, c, w, h){
+  const [minX,minY,maxX,maxY] = rawBBox(stroke);
+  const cw = (maxX - minX) / stroke.cols, rh = (maxY - minY) / stroke.rows;
+  const x0 = (minX + c*cw) * w, y0 = (minY + r*rh) * h;
+  return [x0, y0, cw*w, rh*h];
+}
+function drawGridStroke(stroke, ctx, w, h){
+  withRotation(ctx, stroke, w, h, ()=>{
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
+    const [minX,minY,maxX,maxY] = rawBBox(stroke);
+    const x0=minX*w, y0=minY*h, x1=maxX*w, y1=maxY*h;
+    // header background first, so gridlines/text sit on top
+    if(stroke.header){
+      const [hx,hy,hw,hh] = gridCellRect(stroke, 0, 0, w, h);
+      ctx.fillStyle = stroke.headerColor || 'rgba(47,143,221,0.35)';
+      ctx.fillRect(x0, hy, x1-x0, hh);
+    }
+    ctx.strokeStyle = stroke.color; ctx.lineWidth = Math.max(1, stroke.size/2);
+    ctx.beginPath();
+    ctx.rect(x0, y0, x1-x0, y1-y0);
+    for(let c=1;c<stroke.cols;c++){ const gx = x0 + (x1-x0)*c/stroke.cols; ctx.moveTo(gx,y0); ctx.lineTo(gx,y1); }
+    for(let r=1;r<stroke.rows;r++){ const gy = y0 + (y1-y0)*r/stroke.rows; ctx.moveTo(x0,gy); ctx.lineTo(x1,gy); }
+    ctx.stroke();
+    // cell text
+    Object.keys(stroke.cells || {}).forEach(key=>{
+      const cell = stroke.cells[key];
+      if(!cell || !cell.text) return;
+      const [r,c] = key.split('_').map(Number);
+      const [cx,cy,cwPx,chPx] = gridCellRect(stroke, r, c, w, h);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(cx,cy,cwPx,chPx); ctx.clip();
+      ctx.fillStyle = cell.color || (stroke.header && r===0 ? '#12161d' : stroke.color);
+      const fpx = Math.max(11, Math.min(chPx*0.42, cwPx*0.16 + 10));
+      ctx.font = `${cell.italic?'italic ':''}${cell.bold?'700':'400'} ${fpx}px "Space Grotesk", sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(cell.text, cx + 6, cy + chPx/2);
+      ctx.restore();
+    });
+    ctx.restore();
+  });
+}
+function gridCellAt(stroke, pt){
+  const local = toLocalSpace(pt, stroke);
+  const [minX,minY,maxX,maxY] = rawBBox(stroke);
+  if(local[0] < minX || local[0] > maxX || local[1] < minY || local[1] > maxY) return null;
+  let c = Math.floor((local[0]-minX) / (maxX-minX) * stroke.cols);
+  let r = Math.floor((local[1]-minY) / (maxY-minY) * stroke.rows);
+  c = Math.max(0, Math.min(stroke.cols-1, c));
+  r = Math.max(0, Math.min(stroke.rows-1, r));
+  return [r,c];
+}
+
 function drawStrokeFull(stroke, ctx, w, h){
   if(stroke.type === 'shape'){ drawShape(stroke, ctx, w, h); return; }
   if(stroke.type === 'text'){ drawTextStroke(stroke, ctx, w, h); return; }
+  if(stroke.type === 'grid'){ drawGridStroke(stroke, ctx, w, h); return; }
   if(!stroke.pts.length) return;
-  ctx.save();
-  strokeStyle(ctx, stroke);
-  if(stroke.pts.length === 1){
-    const [x,y] = stroke.pts[0];
-    ctx.beginPath();
-    ctx.arc(x*w, y*h, stroke.size/2, 0, Math.PI*2);
-    ctx.fill();
-  } else {
-    ctx.beginPath();
-    stroke.pts.forEach((p,i)=>{
-      const x = p[0]*w, y = p[1]*h;
-      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-    });
-    ctx.stroke();
-  }
-  ctx.restore();
+  withRotation(ctx, stroke, w, h, ()=>{
+    ctx.save();
+    strokeStyle(ctx, stroke);
+    if(stroke.pts.length === 1){
+      const [x,y] = stroke.pts[0];
+      ctx.beginPath();
+      ctx.arc(x*w, y*h, stroke.size/2, 0, Math.PI*2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      stroke.pts.forEach((p,i)=>{
+        const x = p[0]*w, y = p[1]*h;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+    }
+    ctx.restore();
+  });
 }
 function drawSegment(stroke, from, to){
+  // Freehand strokes are never rotated mid-draw (rotation only ever applies
+  // after the fact, via the select tool), so incremental segments can just
+  // draw straight into page space same as before.
   if(!sketchModalOpen()) return;
   const [w,h] = sketchCssSize();
   const ctx = sketchCtx();
@@ -3528,10 +3794,119 @@ function redrawSketch(){
   sketchStrokes.forEach(s=> drawStrokeFull(s, ctx, w, h));
 }
 
+/* ---- undo/redo history ---- */
+function pushHistory(action){
+  sketchHistory.push(action);
+  sketchRedoStack = [];
+  updateUndoRedoButtons();
+}
+function updateUndoRedoButtons(){
+  const u = document.getElementById('sketchUndoBtn'), r = document.getElementById('sketchRedoBtn');
+  if(u) u.style.opacity = sketchHistory.length ? '1' : '0.4';
+  if(r) r.style.opacity = sketchRedoStack.length ? '1' : '0.4';
+}
+function snapshotGeometry(stroke){
+  const base = { rotation: stroke.rotation || 0 };
+  if(stroke.type === 'shape') return { ...base, p0:[...stroke.p0], p1:[...stroke.p1] };
+  if(stroke.type === 'text') return { ...base, p:[...stroke.p] };
+  if(stroke.type === 'grid') return { ...base, p0:[...stroke.p0], p1:[...stroke.p1] };
+  return { ...base, pts: stroke.pts.map(p=>[...p]) };
+}
+function applyGeometry(stroke, geo){
+  stroke.rotation = geo.rotation || 0;
+  if(geo.p0) stroke.p0 = [...geo.p0];
+  if(geo.p1) stroke.p1 = [...geo.p1];
+  if(geo.p) stroke.p = [...geo.p];
+  if(geo.pts) stroke.pts = geo.pts.map(p=>[...p]);
+}
+function sendTransformFor(stroke){
+  const payload = { type:'sketch-transform', id: stroke.id, rotation: stroke.rotation || 0 };
+  if(stroke.type === 'shape' || stroke.type === 'grid'){ payload.p0 = stroke.p0; payload.p1 = stroke.p1; }
+  else if(stroke.type === 'text'){ payload.p = stroke.p; }
+  else { payload.pts = stroke.pts; }
+  sendSketchPayload(payload);
+}
+function undoLastAction(){
+  if(sketchTextEditor) commitSketchText();
+  if(sketchGridCellEditor) commitGridCellText();
+  const action = sketchHistory.pop();
+  if(!action) return;
+  sketchRedoStack.push(action);
+  updateUndoRedoButtons();
+  if(action.kind === 'create'){
+    removeStrokeById(action.id);
+    redrawSketch();
+    sendSketchPayload({type:'sketch-undo', id: action.id});
+  } else if(action.kind === 'delete'){
+    sketchStrokes.splice(action.index, 0, action.stroke);
+    sketchById.set(action.stroke.id, action.stroke);
+    redrawSketch();
+    sendSketchPayload({type:'sketch-restore', stroke: action.stroke, index: action.index});
+  } else if(action.kind === 'transform'){
+    const stroke = sketchById.get(action.id);
+    if(stroke){ applyGeometry(stroke, action.before); redrawSketch(); sendTransformFor(stroke); if(selectedStrokeId===action.id) renderSelectionOverlay(); }
+  } else if(action.kind === 'style'){
+    const stroke = sketchById.get(action.id);
+    if(stroke){ Object.assign(stroke, action.before); redrawSketch(); sendSketchPayload({type:'sketch-style', id: stroke.id, style: action.before}); }
+  } else if(action.kind === 'cell'){
+    const stroke = sketchById.get(action.gridId);
+    if(stroke){
+      if(action.before) stroke.cells[action.key] = action.before; else delete stroke.cells[action.key];
+      redrawSketch();
+      sendSketchPayload({type:'sketch-cell', gridId: action.gridId, key: action.key, cell: action.before || null});
+    }
+  } else if(action.kind === 'reorder'){
+    reorderStrokeTo(action.id, action.fromIndex, false);
+    sendSketchPayload({type:'sketch-reorder', id: action.id, toIndex: action.fromIndex});
+  }
+}
+function redoLastAction(){
+  const action = sketchRedoStack.pop();
+  if(!action) return;
+  sketchHistory.push(action);
+  updateUndoRedoButtons();
+  if(action.kind === 'create'){
+    sketchStrokes.push(action.stroke);
+    sketchById.set(action.stroke.id, action.stroke);
+    redrawSketch();
+    sendCreateFor(action.stroke);
+  } else if(action.kind === 'delete'){
+    removeStrokeById(action.stroke.id);
+    redrawSketch();
+    sendSketchPayload({type:'sketch-undo', id: action.stroke.id});
+  } else if(action.kind === 'transform'){
+    const stroke = sketchById.get(action.id);
+    if(stroke){ applyGeometry(stroke, action.after); redrawSketch(); sendTransformFor(stroke); if(selectedStrokeId===action.id) renderSelectionOverlay(); }
+  } else if(action.kind === 'style'){
+    const stroke = sketchById.get(action.id);
+    if(stroke){ Object.assign(stroke, action.after); redrawSketch(); sendSketchPayload({type:'sketch-style', id: stroke.id, style: action.after}); }
+  } else if(action.kind === 'cell'){
+    const stroke = sketchById.get(action.gridId);
+    if(stroke){
+      if(action.after) stroke.cells[action.key] = action.after; else delete stroke.cells[action.key];
+      redrawSketch();
+      sendSketchPayload({type:'sketch-cell', gridId: action.gridId, key: action.key, cell: action.after || null});
+    }
+  } else if(action.kind === 'reorder'){
+    reorderStrokeTo(action.id, action.toIndex, false);
+    sendSketchPayload({type:'sketch-reorder', id: action.id, toIndex: action.toIndex});
+  }
+}
+function sendCreateFor(stroke){
+  if(stroke.type === 'shape') sendSketchPayload({type:'sketch-shape', id:stroke.id, shape:stroke.shape, p0:stroke.p0, p1:stroke.p1, color:stroke.color, size:stroke.size, fill:stroke.fill, opacity:stroke.opacity, rotation:stroke.rotation, name:stroke.name});
+  else if(stroke.type === 'text') sendSketchPayload({type:'sketch-text', id:stroke.id, p:stroke.p, text:stroke.text, color:stroke.color, size:stroke.size, bold:stroke.bold, italic:stroke.italic, opacity:stroke.opacity, rotation:stroke.rotation, name:stroke.name});
+  else if(stroke.type === 'grid') sendSketchPayload({type:'sketch-grid', id:stroke.id, p0:stroke.p0, p1:stroke.p1, rows:stroke.rows, cols:stroke.cols, header:stroke.header, color:stroke.color, headerColor:stroke.headerColor, size:stroke.size, opacity:stroke.opacity, cells:stroke.cells, name:stroke.name});
+  else {
+    sendSketchPayload({type:'sketch-start', id:stroke.id, color:stroke.color, size:stroke.size, erase:stroke.erase, name:stroke.name, x:stroke.pts[0][0], y:stroke.pts[0][1]});
+    if(stroke.pts.length > 1) sendSketchPayload({type:'sketch-point', id:stroke.id, pts: stroke.pts.slice(1)});
+    sendSketchPayload({type:'sketch-end', id: stroke.id});
+  }
+}
+
 /* ---- applying remote (or synced) events ---- */
 function sketchApplyStart(obj){
   if(sketchById.has(obj.id)) return;
-  const stroke = { id:obj.id, color:obj.color, size:obj.size, erase:!!obj.erase, name:obj.name, pts:[[obj.x,obj.y]], done:false };
+  const stroke = { id:obj.id, color:obj.color, size:obj.size, erase:!!obj.erase, name:obj.name, pts:[[obj.x,obj.y]], done:false, opacity: obj.opacity==null?1:obj.opacity, rotation:0 };
   sketchStrokes.push(stroke);
   sketchById.set(obj.id, stroke);
   if(sketchModalOpen()) drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
@@ -3552,6 +3927,9 @@ function sketchApplyEnd(obj){
 function sketchApplyClear(obj){
   sketchStrokes = [];
   sketchById.clear();
+  sketchHistory = [];
+  sketchRedoStack = [];
+  updateUndoRedoButtons();
   clearSketchSelection();
   if(sketchModalOpen()){
     const [w,h] = sketchCssSize();
@@ -3578,7 +3956,7 @@ async function sendSketchSyncTo(connId){
 }
 function sketchApplyShape(obj){
   if(sketchById.has(obj.id)) return;
-  const stroke = { id:obj.id, type:'shape', shape:obj.shape, p0:obj.p0, p1:obj.p1, color:obj.color, size:obj.size, fill:!!obj.fill, name:obj.name };
+  const stroke = { id:obj.id, type:'shape', shape:obj.shape, p0:obj.p0, p1:obj.p1, color:obj.color, size:obj.size, fill:!!obj.fill, opacity: obj.opacity==null?1:obj.opacity, rotation: obj.rotation||0, name:obj.name };
   sketchStrokes.push(stroke);
   sketchById.set(obj.id, stroke);
   if(sketchModalOpen()) drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
@@ -3590,10 +3968,30 @@ function sketchApplyBg(obj){
 }
 function sketchApplyText(obj){
   if(sketchById.has(obj.id)) return;
-  const stroke = { id:obj.id, type:'text', p:obj.p, text:obj.text, color:obj.color, size:obj.size, name:obj.name };
+  const stroke = { id:obj.id, type:'text', p:obj.p, text:obj.text, color:obj.color, size:obj.size, bold:!!obj.bold, italic:!!obj.italic, opacity: obj.opacity==null?1:obj.opacity, rotation: obj.rotation||0, name:obj.name };
   sketchStrokes.push(stroke);
   sketchById.set(obj.id, stroke);
   if(sketchModalOpen()) drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
+}
+function sketchApplyGrid(obj){
+  if(sketchById.has(obj.id)) return;
+  const stroke = { id:obj.id, type:'grid', p0:obj.p0, p1:obj.p1, rows:obj.rows, cols:obj.cols, header:!!obj.header, color:obj.color, headerColor:obj.headerColor, size:obj.size, opacity: obj.opacity==null?1:obj.opacity, rotation: obj.rotation||0, cells: obj.cells||{}, name:obj.name };
+  sketchStrokes.push(stroke);
+  sketchById.set(obj.id, stroke);
+  if(sketchModalOpen()) drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
+}
+function sketchApplyCell(obj){
+  const stroke = sketchById.get(obj.gridId);
+  if(!stroke || stroke.type !== 'grid') return;
+  if(obj.cell) stroke.cells[obj.key] = obj.cell; else delete stroke.cells[obj.key];
+  redrawSketch();
+}
+function sketchApplyStyle(obj){
+  const stroke = sketchById.get(obj.id);
+  if(!stroke) return;
+  Object.assign(stroke, obj.style);
+  redrawSketch();
+  if(selectedStrokeId === obj.id) renderSelectionOverlay();
 }
 function removeStrokeById(id){
   const idx = sketchStrokes.findIndex(s=> s.id === id);
@@ -3607,24 +4005,35 @@ function sketchApplyUndo(obj){
   if(!obj || !obj.id) return;
   if(removeStrokeById(obj.id)) redrawSketch();
 }
-function undoMyLastStroke(){
-  if(!sketchMyStrokeIds.length) return;
-  const id = sketchMyStrokeIds.pop();
-  if(removeStrokeById(id)){
-    redrawSketch();
-    sendSketchPayload({type:'sketch-undo', id});
-  } else {
-    // stroke was already gone (e.g. cleared, or undone from another tab) — skip it
-    undoMyLastStroke();
-  }
+function sketchApplyRestore(obj){
+  if(!obj || !obj.stroke || sketchById.has(obj.stroke.id)) return;
+  const idx = Math.min(obj.index == null ? sketchStrokes.length : obj.index, sketchStrokes.length);
+  sketchStrokes.splice(idx, 0, obj.stroke);
+  sketchById.set(obj.stroke.id, obj.stroke);
+  redrawSketch();
 }
+function reorderStrokeTo(id, toIndex, record){
+  const idx = sketchStrokes.findIndex(s=> s.id === id);
+  if(idx === -1) return;
+  const [stroke] = sketchStrokes.splice(idx, 1);
+  const clampedIndex = Math.max(0, Math.min(toIndex, sketchStrokes.length));
+  sketchStrokes.splice(clampedIndex, 0, stroke);
+  if(record) pushHistory({kind:'reorder', id, fromIndex: idx, toIndex: clampedIndex});
+  redrawSketch();
+}
+function sketchApplyReorder(obj){
+  reorderStrokeTo(obj.id, obj.toIndex, false);
+}
+
+/* ---- undo/redo entry point used by the toolbar + keyboard shortcuts ---- */
+function undoMyLastStroke(){ undoLastAction(); }
 
 /* ---- text tool: a live <textarea> overlay while typing, committed to a
    real sketch-text stroke on blur/Enter, discarded on Escape ---- */
 function openSketchTextEditor(pt){
   const inner = document.getElementById('sketchCanvasInner');
   const el = document.createElement('textarea');
-  el.className = 'sketch-text-input';
+  el.className = 'sketch-text-input' + (sketchBold ? ' b' : '') + (sketchItalic ? ' i' : '');
   el.rows = 1;
   el.spellcheck = false;
   el.style.left = (pt[0] * 100) + '%';
@@ -3636,7 +4045,7 @@ function openSketchTextEditor(pt){
   el.style.width = '40px';
   el.style.height = Math.round(fontPx * 1.25) + 'px';
   inner.appendChild(el);
-  sketchTextEditor = { el, p: pt, color: sketchColor, size: sketchSize };
+  sketchTextEditor = { el, p: pt, color: sketchColor, size: sketchSize, bold: sketchBold, italic: sketchItalic };
   const grow = ()=>{
     el.style.height = 'auto';
     el.style.height = el.scrollHeight + 'px';
@@ -3653,18 +4062,18 @@ function openSketchTextEditor(pt){
 }
 function commitSketchText(){
   if(!sketchTextEditor) return;
-  const { el, p, color, size } = sketchTextEditor;
+  const { el, p, color, size, bold, italic } = sketchTextEditor;
   sketchTextEditor = null;
   const text = el.value.trim();
   el.remove();
   if(!text) return;
   const id = state.myId + '-' + Date.now() + '-' + Math.floor(Math.random()*1e6);
-  const stroke = { id, type:'text', p, text, color, size, name: state.myName };
+  const stroke = { id, type:'text', p, text, color, size, bold, italic, opacity: sketchOpacity, rotation: 0, name: state.myName };
   sketchStrokes.push(stroke);
   sketchById.set(id, stroke);
-  sketchMyStrokeIds.push(id);
+  pushHistory({kind:'create', id});
   drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
-  sendSketchPayload({type:'sketch-text', id, p, text, color, size, name: state.myName});
+  sendCreateFor(stroke);
 }
 function cancelSketchText(){
   if(!sketchTextEditor) return;
@@ -3695,80 +4104,182 @@ function clearShapePreview(){
   if(svg) svg.innerHTML = '';
 }
 
-/* ---- select / move / resize tool ---- */
-const SKETCH_HANDLE_PX = 11;      // on-screen radius (px) counted as "on a handle"
-function getStrokeBBox(stroke){
-  if(stroke.type === 'shape'){
-    return [
-      Math.min(stroke.p0[0], stroke.p1[0]), Math.min(stroke.p0[1], stroke.p1[1]),
-      Math.max(stroke.p0[0], stroke.p1[0]), Math.max(stroke.p0[1], stroke.p1[1])
-    ];
-  }
-  if(stroke.type === 'text'){
-    const [w,h] = sketchCssSize();
-    const [tw,th] = measureTextStroke(stroke);
-    return [stroke.p[0], stroke.p[1], stroke.p[0] + tw/w, stroke.p[1] + th/h];
-  }
-  let minX=1, minY=1, maxX=0, maxY=0;
-  (stroke.pts||[]).forEach(([x,y])=>{
-    if(x<minX) minX=x; if(y<minY) minY=y;
-    if(x>maxX) maxX=x; if(y>maxY) maxY=y;
-  });
-  if(maxX < minX){ minX=0; minY=0; maxX=1; maxY=1; }
-  return [minX, minY, maxX, maxY];
+/* ---- grid tool: rows/cols popup, then click-to-place, then click any
+   cell (with the grid or select tool) to type directly into it ---- */
+function openGridPopup(){
+  document.getElementById('sketchGridPopup').classList.add('active');
 }
-function findStrokeAt(pt){
+function closeGridPopup(){
+  document.getElementById('sketchGridPopup').classList.remove('active');
+}
+function createGridFromPopup(){
+  const rows = Math.max(1, Math.min(30, parseInt(document.getElementById('sketchGridRows').value, 10) || 4));
+  const cols = Math.max(1, Math.min(20, parseInt(document.getElementById('sketchGridCols').value, 10) || 4));
+  const header = document.getElementById('sketchGridHeader').checked;
+  closeGridPopup();
+  // Drop it centered, sized to ~70% of the page, so it's immediately visible
+  // and easy to grab a handle on to resize/move afterward.
+  const p0 = [0.15, 0.15], p1 = [0.85, 0.85];
+  const id = state.myId + '-' + Date.now() + '-' + Math.floor(Math.random()*1e6);
+  const stroke = { id, type:'grid', p0, p1, rows, cols, header, color: sketchColor, headerColor: 'rgba(47,143,221,0.35)', size: sketchSize, opacity: sketchOpacity, rotation: 0, cells: {}, name: state.myName };
+  sketchStrokes.push(stroke);
+  sketchById.set(id, stroke);
+  pushHistory({kind:'create', id});
+  drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
+  sendCreateFor(stroke);
+  setSketchTool('select');
+  selectedStrokeId = id;
+  renderSelectionOverlay();
+}
+function openGridCellEditor(stroke, r, c){
+  commitGridCellText();
+  const inner = document.getElementById('sketchCanvasInner');
   const [w,h] = sketchCssSize();
-  const tolX = 10/w, tolY = 10/h;
-  for(let i = sketchStrokes.length - 1; i >= 0; i--){
-    const s = sketchStrokes[i];
-    const [minX,minY,maxX,maxY] = getStrokeBBox(s);
-    if(pt[0] >= minX - tolX && pt[0] <= maxX + tolX && pt[1] >= minY - tolY && pt[1] <= maxY + tolY) return s;
-  }
-  return null;
+  const [cx,cy,cwPx,chPx] = gridCellRect(stroke, r, c, w, h);
+  const cell = (stroke.cells && stroke.cells[r+'_'+c]) || {};
+  const el = document.createElement('textarea');
+  el.className = 'sketch-grid-cell-input' + (cell.bold ? ' b' : '') + (cell.italic ? ' i' : '');
+  el.value = cell.text || '';
+  el.style.left = cx + 'px';
+  el.style.top = cy + 'px';
+  el.style.width = Math.max(20, cwPx - 8) + 'px';
+  el.style.height = Math.max(16, chPx - 6) + 'px';
+  el.style.color = cell.color || (stroke.header && r===0 ? '#12161d' : stroke.color);
+  el.style.fontSize = Math.max(11, Math.min(chPx*0.4, 16)) + 'px';
+  inner.appendChild(el);
+  sketchGridCellEditor = { el, gridId: stroke.id, r, c, before: stroke.cells[r+'_'+c] ? {...stroke.cells[r+'_'+c]} : null };
+  el.addEventListener('blur', commitGridCellText);
+  el.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape'){ e.preventDefault(); cancelGridCellText(); }
+    else if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); commitGridCellText(); }
+  });
+  el.focus();
+  el.select();
 }
+function commitGridCellText(){
+  if(!sketchGridCellEditor) return;
+  const { el, gridId, r, c, before } = sketchGridCellEditor;
+  sketchGridCellEditor = null;
+  const stroke = sketchById.get(gridId);
+  const text = el.value;
+  el.remove();
+  if(!stroke) return;
+  const key = r+'_'+c;
+  const hadBefore = !!before;
+  const trimmed = text.trim();
+  if(!trimmed && !hadBefore) return; // nothing to commit
+  const after = trimmed ? { text, bold: sketchBold, italic: sketchItalic, color: sketchColor } : null;
+  if(after) stroke.cells[key] = after; else delete stroke.cells[key];
+  pushHistory({kind:'cell', gridId, key, before, after});
+  redrawSketch();
+  sendSketchPayload({type:'sketch-cell', gridId, key, cell: after});
+}
+function cancelGridCellText(){
+  if(!sketchGridCellEditor) return;
+  const { el } = sketchGridCellEditor;
+  sketchGridCellEditor = null;
+  el.remove();
+}
+
+/* ---- select / move / resize / rotate tool ---- */
+const SKETCH_HANDLE_PX = 11;      // on-screen radius (px) counted as "on a handle"
+const SKETCH_ROTATE_OFFSET_PX = 34; // distance of the rotate handle above the bbox
 function selectedStroke(){ return selectedStrokeId ? sketchById.get(selectedStrokeId) : null; }
 function renderSelectionOverlay(){
   const svg = document.getElementById('sketchShapePreview');
   const stroke = selectedStroke();
-  if(!stroke){ svg.innerHTML = ''; return; }
+  if(!stroke){ svg.innerHTML = ''; positionFloatToolbar(null); return; }
   const [w,h] = sketchCssSize();
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
   const [minX,minY,maxX,maxY] = getStrokeBBox(stroke);
-  const x0=minX*w, y0=minY*h, x1=maxX*w, y1=maxY*h;
-  const r = 6;
-  const corners = [[x0,y0],[x1,y0],[x0,y1],[x1,y1]];
-  svg.innerHTML = `<rect x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" fill="none" stroke="#5db3f0" stroke-width="1.5" stroke-dasharray="5,4"/>` +
-    corners.map(([cx,cy])=> `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#5db3f0" stroke-width="2"/>`).join('');
+  const rot = stroke.rotation || 0;
+  const [ccx,ccy] = strokeCenter(stroke);
+  const cx = ccx*w, cy = ccy*h;
+  const raw = [[minX,minY],[maxX,minY],[maxX,maxY],[minX,maxY]].map(([x,y])=> [x*w, y*h]);
+  const corners = raw.map(([x,y])=> rotatePointAround(x, y, cx, cy, rot));
+  const rotHandleRaw = [ (raw[0][0]+raw[1][0])/2, raw[0][1] - SKETCH_ROTATE_OFFSET_PX ];
+  const rotHandle = rotatePointAround(rotHandleRaw[0], rotHandleRaw[1], cx, cy, rot);
+  const topMid = rotatePointAround((raw[0][0]+raw[1][0])/2, raw[0][1], cx, cy, rot);
+  const poly = corners.map(([x,y])=> `${x},${y}`).join(' ');
+  const handleKeys = ['tl','tr','br','bl'];
+  svg.innerHTML =
+    `<polygon points="${poly}" fill="none" stroke="#5db3f0" stroke-width="1.5" stroke-dasharray="5,4"/>` +
+    `<line x1="${topMid[0]}" y1="${topMid[1]}" x2="${rotHandle[0]}" y2="${rotHandle[1]}" stroke="#5db3f0" stroke-width="1.5"/>` +
+    corners.map(([px,py],i)=> `<circle data-h="${handleKeys[i]}" cx="${px}" cy="${py}" r="6" fill="#fff" stroke="#5db3f0" stroke-width="2"/>`).join('') +
+    `<circle data-h="rotate" cx="${rotHandle[0]}" cy="${rotHandle[1]}" r="7" fill="#5db3f0" stroke="#fff" stroke-width="2"/>`;
+  positionFloatToolbar(stroke);
+}
+function positionFloatToolbar(stroke){
+  const bar = document.getElementById('sketchFloatToolbar');
+  if(!stroke){ bar.classList.remove('active'); return; }
+  const [w,h] = sketchCssSize();
+  const [minX,minY,maxX] = getStrokeBBox(stroke);
+  const [ccx,ccy] = strokeCenter(stroke);
+  const topRaw = [ (minX+maxX)/2*w, minY*h - SKETCH_ROTATE_OFFSET_PX - 28 ];
+  const rot = stroke.rotation || 0;
+  const [tx,ty] = rotatePointAround(topRaw[0], topRaw[1], ccx*w, ccy*h, rot);
+  bar.style.left = Math.max(8, tx) + 'px';
+  bar.style.top = Math.max(4, ty) + 'px';
+  bar.style.transform = 'translate(-50%, 0)';
+  bar.classList.add('active');
 }
 function hitTestHandle(pt){
   const stroke = selectedStroke();
   if(!stroke) return null;
   const [w,h] = sketchCssSize();
   const [minX,minY,maxX,maxY] = getStrokeBBox(stroke);
+  const rot = stroke.rotation || 0;
+  const [ccx,ccy] = strokeCenter(stroke);
+  const cx = ccx*w, cy = ccy*h;
   const px = pt[0]*w, py = pt[1]*h;
-  const handles = { tl:[minX*w,minY*h], tr:[maxX*w,minY*h], bl:[minX*w,maxY*h], br:[maxX*w,maxY*h] };
-  for(const key in handles){
-    const [hx,hy] = handles[key];
-    if(Math.hypot(px-hx, py-hy) <= SKETCH_HANDLE_PX) return key;
+  const raw = { tl:[minX*w,minY*h], tr:[maxX*w,minY*h], bl:[minX*w,maxY*h], br:[maxX*w,maxY*h] };
+  for(const key in raw){
+    const [x,y] = rotatePointAround(raw[key][0], raw[key][1], cx, cy, rot);
+    if(Math.hypot(px-x, py-y) <= SKETCH_HANDLE_PX) return key;
   }
+  const rotRaw = [ (minX*w+maxX*w)/2, minY*h - SKETCH_ROTATE_OFFSET_PX ];
+  const [rx,ry] = rotatePointAround(rotRaw[0], rotRaw[1], cx, cy, rot);
+  if(Math.hypot(px-rx, py-ry) <= SKETCH_HANDLE_PX + 2) return 'rotate';
   return null;
 }
 function pointInStrokeBBox(pt, stroke){
+  const local = toLocalSpace(pt, stroke);
   const [minX,minY,maxX,maxY] = getStrokeBBox(stroke);
-  return pt[0] >= minX && pt[0] <= maxX && pt[1] >= minY && pt[1] <= maxY;
+  return local[0] >= minX && local[0] <= maxX && local[1] >= minY && local[1] <= maxY;
 }
-function deepCopyGeometry(stroke){
-  if(stroke.type === 'shape') return { p0:[...stroke.p0], p1:[...stroke.p1] };
-  if(stroke.type === 'text') return { p:[...stroke.p] };
-  return { pts: stroke.pts.map(p=>[...p]) };
+function findStrokeAt(pt){
+  const [w,h] = sketchCssSize();
+  const tolX = 10/w, tolY = 10/h;
+  for(let i = sketchStrokes.length - 1; i >= 0; i--){
+    const s = sketchStrokes[i];
+    const local = toLocalSpace(pt, s);
+    const [minX,minY,maxX,maxY] = getStrokeBBox(s);
+    if(local[0] >= minX - tolX && local[0] <= maxX + tolX && local[1] >= minY - tolY && local[1] <= maxY + tolY) return s;
+  }
+  return null;
 }
+function deepCopyGeometry(stroke){ return snapshotGeometry(stroke); }
 function applySelectDrag(pt){
   const stroke = selectedStroke();
   if(!stroke || !selectDragMode || !selectDragSnapshot) return;
-  const dx = pt[0] - selectDragOrigin[0], dy = pt[1] - selectDragOrigin[1];
+  selectDragChanged = true;
+  if(selectDragMode === 'rotate'){
+    const [w,h] = sketchCssSize();
+    const [ccx,ccy] = strokeCenter(stroke);
+    const ang = Math.atan2(pt[1]*h - ccy*h, pt[0]*w - ccx*w);
+    stroke.rotation = ang - selectDragAngleOffset + Math.PI/2;
+    redrawSketch();
+    renderSelectionOverlay();
+    return;
+  }
+  // For move/resize we work in the stroke's own unrotated local space so
+  // dragging a rotated shape still feels natural (drag right = grows right
+  // relative to the shape, not the screen).
+  const origin = toLocalSpaceAgainstSnapshot(selectDragOrigin, selectDragSnapshot, stroke.rotation || 0);
+  const cur = toLocalSpaceAgainstSnapshot(pt, selectDragSnapshot, stroke.rotation || 0);
+  const dx = cur[0] - origin[0], dy = cur[1] - origin[1];
   if(selectDragMode === 'move'){
-    if(stroke.type === 'shape'){
+    if(stroke.type === 'shape' || stroke.type === 'grid'){
       stroke.p0 = [selectDragSnapshot.p0[0] + dx, selectDragSnapshot.p0[1] + dy];
       stroke.p1 = [selectDragSnapshot.p1[0] + dx, selectDragSnapshot.p1[1] + dy];
     } else if(stroke.type === 'text'){
@@ -3777,17 +4288,18 @@ function applySelectDrag(pt){
       stroke.pts = selectDragSnapshot.pts.map(([x,y])=> [x + dx, y + dy]);
     }
   } else if(stroke.type !== 'text') {
-    // Resizing from one corner, keeping the opposite corner anchored.
-    const orig = stroke.type === 'shape'
+    // Resizing from one corner, keeping the opposite corner anchored (in
+    // the stroke's own local/unrotated space).
+    const orig = (stroke.type === 'shape' || stroke.type === 'grid')
       ? [Math.min(selectDragSnapshot.p0[0],selectDragSnapshot.p1[0]), Math.min(selectDragSnapshot.p0[1],selectDragSnapshot.p1[1]),
          Math.max(selectDragSnapshot.p0[0],selectDragSnapshot.p1[0]), Math.max(selectDragSnapshot.p0[1],selectDragSnapshot.p1[1])]
       : (()=>{ let mnX=1,mnY=1,mxX=0,mxY=0; selectDragSnapshot.pts.forEach(([x,y])=>{ if(x<mnX)mnX=x; if(y<mnY)mnY=y; if(x>mxX)mxX=x; if(y>mxY)mxY=y; }); return [mnX,mnY,mxX,mxY]; })();
     let [minX,minY,maxX,maxY] = orig;
-    if(selectDragMode === 'tl'){ minX = Math.min(pt[0], maxX-0.01); minY = Math.min(pt[1], maxY-0.01); }
-    else if(selectDragMode === 'tr'){ maxX = Math.max(pt[0], minX+0.01); minY = Math.min(pt[1], maxY-0.01); }
-    else if(selectDragMode === 'bl'){ minX = Math.min(pt[0], maxX-0.01); maxY = Math.max(pt[1], minY+0.01); }
-    else if(selectDragMode === 'br'){ maxX = Math.max(pt[0], minX+0.01); maxY = Math.max(pt[1], minY+0.01); }
-    if(stroke.type === 'shape'){
+    if(selectDragMode === 'tl'){ minX = Math.min(cur[0], maxX-0.01); minY = Math.min(cur[1], maxY-0.01); }
+    else if(selectDragMode === 'tr'){ maxX = Math.max(cur[0], minX+0.01); minY = Math.min(cur[1], maxY-0.01); }
+    else if(selectDragMode === 'bl'){ minX = Math.min(cur[0], maxX-0.01); maxY = Math.max(cur[1], minY+0.01); }
+    else if(selectDragMode === 'br'){ maxX = Math.max(cur[0], minX+0.01); maxY = Math.max(cur[1], minY+0.01); }
+    if(stroke.type === 'shape' || stroke.type === 'grid'){
       stroke.p0 = [minX, minY];
       stroke.p1 = [maxX, maxY];
     } else {
@@ -3800,14 +4312,20 @@ function applySelectDrag(pt){
   redrawSketch();
   renderSelectionOverlay();
 }
+// Rotate a page-space point into the *snapshot's* local frame (snapshot's
+// own center, since geometry hasn't moved yet during the drag).
+function toLocalSpaceAgainstSnapshot(pt, snapshot, rotation){
+  if(!rotation) return pt;
+  let cx, cy;
+  if(snapshot.p0 && snapshot.p1){ cx = (snapshot.p0[0]+snapshot.p1[0])/2; cy = (snapshot.p0[1]+snapshot.p1[1])/2; }
+  else if(snapshot.p){ cx = snapshot.p[0]; cy = snapshot.p[1]; }
+  else { let mnX=1,mnY=1,mxX=0,mxY=0; snapshot.pts.forEach(([x,y])=>{ if(x<mnX)mnX=x; if(y<mnY)mnY=y; if(x>mxX)mxX=x; if(y>mxY)mxY=y; }); cx=(mnX+mxX)/2; cy=(mnY+mxY)/2; }
+  return rotatePointAround(pt[0], pt[1], cx, cy, -rotation);
+}
 function sendSelectTransform(){
   const stroke = selectedStroke();
   if(!stroke) return;
-  let payload;
-  if(stroke.type === 'shape') payload = {type:'sketch-transform', id: stroke.id, p0: stroke.p0, p1: stroke.p1};
-  else if(stroke.type === 'text') payload = {type:'sketch-transform', id: stroke.id, p: stroke.p};
-  else payload = {type:'sketch-transform', id: stroke.id, pts: stroke.pts};
-  sendSketchPayload(payload);
+  sendTransformFor(stroke);
 }
 function clearSketchSelection(){
   selectedStrokeId = null;
@@ -3815,6 +4333,7 @@ function clearSketchSelection(){
   selectDragOrigin = null;
   selectDragSnapshot = null;
   clearShapePreview();
+  positionFloatToolbar(null);
 }
 function sketchApplyTransform(obj){
   const stroke = sketchById.get(obj.id);
@@ -3822,8 +4341,57 @@ function sketchApplyTransform(obj){
   if(obj.p0 && obj.p1){ stroke.p0 = obj.p0; stroke.p1 = obj.p1; }
   if(obj.pts){ stroke.pts = obj.pts; }
   if(obj.p){ stroke.p = obj.p; }
+  if(obj.rotation != null){ stroke.rotation = obj.rotation; }
   redrawSketch();
   if(selectedStrokeId === obj.id) renderSelectionOverlay();
+}
+
+/* ---- selected-object actions: delete / duplicate / reorder / restyle ---- */
+function deleteSelectedStroke(){
+  const stroke = selectedStroke();
+  if(!stroke) return;
+  const index = sketchStrokes.findIndex(s=> s.id === stroke.id);
+  if(index === -1) return;
+  removeStrokeById(stroke.id);
+  pushHistory({kind:'delete', stroke, index});
+  redrawSketch();
+  sendSketchPayload({type:'sketch-undo', id: stroke.id});
+}
+function duplicateSelectedStroke(){
+  const stroke = selectedStroke();
+  if(!stroke) return;
+  const copy = JSON.parse(JSON.stringify(stroke));
+  copy.id = state.myId + '-' + Date.now() + '-' + Math.floor(Math.random()*1e6);
+  copy.name = state.myName;
+  const nudge = 0.02;
+  if(copy.type === 'shape' || copy.type === 'grid'){ copy.p0 = [copy.p0[0]+nudge, copy.p0[1]+nudge]; copy.p1 = [copy.p1[0]+nudge, copy.p1[1]+nudge]; }
+  else if(copy.type === 'text'){ copy.p = [copy.p[0]+nudge, copy.p[1]+nudge]; }
+  else { copy.pts = copy.pts.map(([x,y])=> [x+nudge, y+nudge]); }
+  sketchStrokes.push(copy);
+  sketchById.set(copy.id, copy);
+  pushHistory({kind:'create', id: copy.id});
+  redrawSketch();
+  sendCreateFor(copy);
+  selectedStrokeId = copy.id;
+  renderSelectionOverlay();
+}
+function reorderSelected(dir){
+  const stroke = selectedStroke();
+  if(!stroke) return;
+  const from = sketchStrokes.findIndex(s=> s.id === stroke.id);
+  const to = dir === 'front' ? sketchStrokes.length - 1 : 0;
+  if(from === to) return;
+  reorderStrokeTo(stroke.id, to, true);
+  sendSketchPayload({type:'sketch-reorder', id: stroke.id, toIndex: to});
+}
+function applyStyleChangeToSelection(patch){
+  const stroke = selectedStroke();
+  if(!stroke) return;
+  const before = {}; Object.keys(patch).forEach(k=> before[k] = stroke[k]);
+  Object.assign(stroke, patch);
+  pushHistory({kind:'style', id: stroke.id, before, after: {...patch}});
+  redrawSketch();
+  sendSketchPayload({type:'sketch-style', id: stroke.id, style: patch});
 }
 
 /* ---- my own drawing input ---- */
@@ -3867,22 +4435,46 @@ function sketchPointerDown(e){
   if(sketchTool === 'select'){
     const handle = hitTestHandle(pt);
     if(handle){
+      const stroke = selectedStroke();
       selectDragMode = handle;
       selectDragOrigin = pt;
-      selectDragSnapshot = deepCopyGeometry(selectedStroke());
+      selectDragSnapshot = deepCopyGeometry(stroke);
+      selectDragChanged = false;
+      if(handle === 'rotate'){
+        const [w,h] = sketchCssSize();
+        const [ccx,ccy] = strokeCenter(stroke);
+        const ang = Math.atan2(pt[1]*h - ccy*h, pt[0]*w - ccx*w);
+        selectDragAngleOffset = ang - (stroke.rotation || 0) + Math.PI/2;
+      }
       return;
     }
     const stroke = selectedStroke();
+    if(stroke && stroke.type === 'grid' && pointInStrokeBBox(pt, stroke)){
+      // clicking inside an already-selected grid edits the cell under the
+      // pointer instead of starting a move drag
+      const cell = gridCellAt(stroke, pt);
+      if(cell){ openGridCellEditor(stroke, cell[0], cell[1]); return; }
+    }
     if(stroke && pointInStrokeBBox(pt, stroke)){
       selectDragMode = 'move';
       selectDragOrigin = pt;
       selectDragSnapshot = deepCopyGeometry(stroke);
+      selectDragChanged = false;
       return;
     }
     const hit = findStrokeAt(pt);
     selectedStrokeId = hit ? hit.id : null;
     selectDragMode = null; selectDragOrigin = null; selectDragSnapshot = null;
     renderSelectionOverlay();
+    return;
+  }
+
+  if(sketchTool === 'grid'){
+    const hit = findStrokeAt(pt);
+    if(hit && hit.type === 'grid'){
+      const cell = gridCellAt(hit, pt);
+      if(cell) openGridCellEditor(hit, cell[0], cell[1]);
+    }
     return;
   }
 
@@ -3899,13 +4491,12 @@ function sketchPointerDown(e){
   }
   const {color, size} = currentStrokeColorAndSize();
   const id = state.myId + '-' + Date.now() + '-' + Math.floor(Math.random()*1e6);
-  localStroke = { id, type:'freehand', color, size, erase: sketchEraser, name: state.myName, pts:[pt], done:false };
+  localStroke = { id, type:'freehand', color, size, erase: sketchEraser, name: state.myName, pts:[pt], done:false, opacity: sketchEraser ? 1 : sketchOpacity, rotation:0 };
   sketchStrokes.push(localStroke);
   sketchById.set(id, localStroke);
-  sketchMyStrokeIds.push(id);
   drawStrokeFull(localStroke, sketchCtx(), ...sketchCssSize());
   sketchPendingPts = [];
-  sendSketchPayload({type:'sketch-start', id, color, size, erase: sketchEraser, name: state.myName, x: pt[0], y: pt[1]});
+  sendSketchPayload({type:'sketch-start', id, color, size, erase: sketchEraser, name: state.myName, x: pt[0], y: pt[1], opacity: localStroke.opacity});
 }
 function sketchPointerMove(e){
   if(sketchActivePointerId !== e.pointerId) return;
@@ -3946,7 +4537,13 @@ function sketchPointerUp(e){
 
   if(sketchTool === 'select'){
     if(selectDragMode){
-      sendSelectTransform();
+      if(selectDragChanged){
+        const stroke = selectedStroke();
+        if(stroke){
+          pushHistory({kind:'transform', id: stroke.id, before: selectDragSnapshot, after: snapshotGeometry(stroke)});
+          sendSelectTransform();
+        }
+      }
     }
     selectDragMode = null;
     selectDragOrigin = null;
@@ -3959,12 +4556,12 @@ function sketchPointerUp(e){
     const end = getNormPoint(e);
     clearShapePreview();
     const id = state.myId + '-' + Date.now() + '-' + Math.floor(Math.random()*1e6);
-    const stroke = { id, type:'shape', shape: sketchTool, p0: shapeStart, p1: end, color: sketchColor, size: sketchSize, fill: sketchFill, name: state.myName };
+    const stroke = { id, type:'shape', shape: sketchTool, p0: shapeStart, p1: end, color: sketchColor, size: sketchSize, fill: sketchFill, opacity: sketchOpacity, rotation:0, name: state.myName };
     sketchStrokes.push(stroke);
     sketchById.set(id, stroke);
-    sketchMyStrokeIds.push(id);
+    pushHistory({kind:'create', id});
     drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
-    sendSketchPayload({type:'sketch-shape', id, shape: sketchTool, p0: shapeStart, p1: end, color: sketchColor, size: sketchSize, fill: sketchFill, name: state.myName});
+    sendCreateFor(stroke);
     shapeStart = null;
     return;
   }
@@ -3974,6 +4571,7 @@ function sketchPointerUp(e){
     sketchPendingPts = [];
   }
   localStroke.done = true;
+  pushHistory({kind:'create', id: localStroke.id});
   sendSketchPayload({type:'sketch-end', id: localStroke.id});
   localStroke = null;
 }
@@ -3987,7 +4585,10 @@ function renderSketchColors(){
     b.className = 'sketch-swatch' + (c === sketchColor && !sketchEraser ? ' active' : '');
     b.style.background = c;
     b.title = c;
-    b.addEventListener('click', ()=>{ sketchColor = c; sketchEraser = false; renderSketchColors(); updateEraserBtn(); updateSketchSizeUI(); });
+    b.addEventListener('click', ()=>{
+      sketchColor = c; sketchEraser = false; renderSketchColors(); updateEraserBtn(); updateSketchSizeUI();
+      if(sketchTool === 'select' && selectedStroke()) applyStyleChangeToSelection({color:c});
+    });
     wrap.appendChild(b);
   });
 }
@@ -4023,18 +4624,24 @@ function updateEraserBtn(){
   document.getElementById('sketchEraserBtn').classList.toggle('active', sketchEraser);
   updateSketchSizeUI();
 }
+function updateTextStyleButtons(){
+  document.getElementById('sketchBoldBtn').classList.toggle('active', sketchBold);
+  document.getElementById('sketchItalicBtn').classList.toggle('active', sketchItalic);
+}
 function setSketchTool(tool){
   sketchTool = tool;
   shapeStart = null;
   clearShapePreview();
   if(tool !== 'select') clearSketchSelection();
   if(tool !== 'text') commitSketchText();
+  if(tool !== 'grid' && tool !== 'select') commitGridCellText();
   document.getElementById('sketchPenBtn').classList.toggle('active', tool === 'pen');
   document.getElementById('sketchLineBtn').classList.toggle('active', tool === 'line');
   document.getElementById('sketchRectBtn').classList.toggle('active', tool === 'rect');
   document.getElementById('sketchEllipseBtn').classList.toggle('active', tool === 'ellipse');
   document.getElementById('sketchSelectBtn').classList.toggle('active', tool === 'select');
   document.getElementById('sketchTextBtn').classList.toggle('active', tool === 'text');
+  document.getElementById('sketchGridBtn').classList.toggle('active', tool === 'grid');
 }
 document.getElementById('sketchPenBtn').addEventListener('click', ()=> setSketchTool('pen'));
 document.getElementById('sketchLineBtn').addEventListener('click', ()=> setSketchTool('line'));
@@ -4042,10 +4649,27 @@ document.getElementById('sketchRectBtn').addEventListener('click', ()=> setSketc
 document.getElementById('sketchEllipseBtn').addEventListener('click', ()=> setSketchTool('ellipse'));
 document.getElementById('sketchSelectBtn').addEventListener('click', ()=> setSketchTool('select'));
 document.getElementById('sketchTextBtn').addEventListener('click', ()=> setSketchTool('text'));
-document.getElementById('sketchUndoBtn').addEventListener('click', undoMyLastStroke);
+document.getElementById('sketchGridBtn').addEventListener('click', ()=>{ setSketchTool('grid'); openGridPopup(); });
+document.getElementById('sketchGridCancelBtn').addEventListener('click', ()=>{ closeGridPopup(); setSketchTool('pen'); });
+document.getElementById('sketchGridCreateBtn').addEventListener('click', createGridFromPopup);
+document.getElementById('sketchUndoBtn').addEventListener('click', undoLastAction);
+document.getElementById('sketchRedoBtn').addEventListener('click', redoLastAction);
 document.getElementById('sketchFillBtn').addEventListener('click', (e)=>{
   sketchFill = !sketchFill;
   e.currentTarget.classList.toggle('active', sketchFill);
+  if(sketchTool === 'select' && selectedStroke() && selectedStroke().type === 'shape') applyStyleChangeToSelection({fill: sketchFill});
+});
+document.getElementById('sketchBoldBtn').addEventListener('click', ()=>{
+  sketchBold = !sketchBold;
+  updateTextStyleButtons();
+  const stroke = selectedStroke();
+  if(sketchTool === 'select' && stroke && stroke.type === 'text') applyStyleChangeToSelection({bold: sketchBold});
+});
+document.getElementById('sketchItalicBtn').addEventListener('click', ()=>{
+  sketchItalic = !sketchItalic;
+  updateTextStyleButtons();
+  const stroke = selectedStroke();
+  if(sketchTool === 'select' && stroke && stroke.type === 'text') applyStyleChangeToSelection({italic: sketchItalic});
 });
 document.getElementById('sketchEraserBtn').addEventListener('click', ()=>{
   sketchEraser = !sketchEraser;
@@ -4054,6 +4678,10 @@ document.getElementById('sketchEraserBtn').addEventListener('click', ()=>{
   updateEraserBtn();
 });
 document.getElementById('sketchRotateBtn').addEventListener('click', toggleSketchRotate);
+document.getElementById('sketchLayerFrontBtn').addEventListener('click', ()=> reorderSelected('front'));
+document.getElementById('sketchLayerBackBtn').addEventListener('click', ()=> reorderSelected('back'));
+document.getElementById('sketchDuplicateBtn').addEventListener('click', duplicateSelectedStroke);
+document.getElementById('sketchDeleteSelBtn').addEventListener('click', deleteSelectedStroke);
 function updateSketchSizeUI(){
   const input = document.getElementById('sketchSize');
   const min = parseInt(input.min,10), max = parseInt(input.max,10);
@@ -4066,7 +4694,17 @@ function updateSketchSizeUI(){
   dot.style.height = dotSize + 'px';
   dot.style.background = sketchEraser ? '#e7e9ec' : sketchColor;
 }
-document.getElementById('sketchSize').addEventListener('input', (e)=>{ sketchSize = parseInt(e.target.value, 10) || 4; updateSketchSizeUI(); });
+document.getElementById('sketchSize').addEventListener('input', (e)=>{
+  sketchSize = parseInt(e.target.value, 10) || 4;
+  updateSketchSizeUI();
+  const stroke = selectedStroke();
+  if(sketchTool === 'select' && stroke) applyStyleChangeToSelection({size: sketchSize});
+});
+document.getElementById('sketchOpacity').addEventListener('input', (e)=>{
+  sketchOpacity = (parseInt(e.target.value, 10) || 100) / 100;
+  const stroke = selectedStroke();
+  if(sketchTool === 'select' && stroke) applyStyleChangeToSelection({opacity: sketchOpacity});
+});
 document.getElementById('sketchClearBtn').addEventListener('click', ()=>{
   if(sketchStrokes.length === 0) return;
   showModal({
@@ -4087,8 +4725,11 @@ function openSketchModal(){
   renderSketchBgColors();
   document.getElementById('sketchCanvasInner').style.background = sketchBgColor;
   updateEraserBtn();
-  setSketchTool(sketchTool);
+  updateTextStyleButtons();
+  updateUndoRedoButtons();
+  setSketchTool(sketchTool === 'grid' ? 'pen' : sketchTool);
   document.getElementById('sketchSize').value = sketchSize;
+  document.getElementById('sketchOpacity').value = Math.round(sketchOpacity*100);
   updateSketchSizeUI();
   requestAnimationFrame(resizeSketchCanvas);
   if(!sketchResizeBound){
@@ -4097,6 +4738,17 @@ function openSketchModal(){
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
     if(window.visualViewport) window.visualViewport.addEventListener('resize', onResize);
+    // Keyboard shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z (or Ctrl+Y) redo,
+    // Delete/Backspace removes the selected object — only while the board is open.
+    window.addEventListener('keydown', (e)=>{
+      if(!sketchModalOpen()) return;
+      if(sketchTextEditor || sketchGridCellEditor) return; // let typing behave normally
+      const mod = e.ctrlKey || e.metaKey;
+      if(mod && e.key.toLowerCase() === 'z' && e.shiftKey){ e.preventDefault(); redoLastAction(); }
+      else if(mod && e.key.toLowerCase() === 'z'){ e.preventDefault(); undoLastAction(); }
+      else if(mod && e.key.toLowerCase() === 'y'){ e.preventDefault(); redoLastAction(); }
+      else if((e.key === 'Delete' || e.key === 'Backspace') && selectedStrokeId){ e.preventDefault(); deleteSelectedStroke(); }
+    });
   }
 }
 function closeSketchModal(){
@@ -4104,6 +4756,8 @@ function closeSketchModal(){
   shapeStart = null;
   clearSketchSelection();
   commitSketchText();
+  commitGridCellText();
+  closeGridPopup();
 }
 document.getElementById('sketchBtn').addEventListener('click', openSketchModal);
 document.getElementById('sketchCloseBtn').addEventListener('click', closeSketchModal);

@@ -610,8 +610,8 @@
      squeezing the drawing area into a smaller boxed-in region. */
   .sketch-modal{ position:fixed; inset:0; height:var(--app-height, 100dvh); background:#12161d; display:none; z-index:130; }
   .sketch-modal.active{ display:block; }
-  .sketch-modal .ss-header{ position:absolute; top:0; left:0; right:0; z-index:5; background:linear-gradient(rgba(10,13,18,0.65), rgba(10,13,18,0)); padding-top:calc(12px + env(safe-area-inset-top)); border:none; }
-  .sketch-toolbar{ position:absolute; left:0; right:0; bottom:0; z-index:5; display:flex; align-items:center; gap:12px; padding:10px 14px; background:linear-gradient(rgba(10,13,18,0), rgba(10,13,18,0.78) 40%); flex-wrap:wrap; padding-bottom:calc(10px + env(safe-area-inset-bottom)); pointer-events:none; }
+  .sketch-modal .ss-header{ position:absolute; top:0; left:0; right:0; z-index:5; background:#12161d; padding-top:calc(12px + env(safe-area-inset-top)); border:none; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .sketch-toolbar{ position:absolute; left:0; right:0; bottom:0; z-index:5; display:flex; align-items:center; gap:12px; padding:10px 14px; background:#12161d; border-top:1px solid rgba(255,255,255,0.08); flex-wrap:wrap; padding-bottom:calc(10px + env(safe-area-inset-bottom)); pointer-events:none; }
   .sketch-toolbar > *{ pointer-events:auto; }
   .sketch-colors{ display:flex; gap:7px; align-items:center; }
   .sketch-swatch{ width:24px; height:24px; border-radius:50%; border:2px solid rgba(255,255,255,0.18); cursor:pointer; flex-shrink:0; padding:0; }
@@ -1045,6 +1045,7 @@
     <div class="sketch-float-toolbar" id="sketchFloatToolbar">
       <button id="sketchLayerFrontBtn" title="Bring to front"><span class="material-symbols-outlined" style="font-size:15px;">flip_to_front</span></button>
       <button id="sketchLayerBackBtn" title="Send to back"><span class="material-symbols-outlined" style="font-size:15px;">flip_to_back</span></button>
+      <button id="sketchEditGridBtn" title="Edit rows / columns" style="display:none;"><span class="material-symbols-outlined" style="font-size:15px;">grid_on</span></button>
       <button id="sketchDuplicateBtn" title="Duplicate"><span class="material-symbols-outlined" style="font-size:15px;">content_copy</span></button>
       <button id="sketchDeleteSelBtn" class="danger" title="Delete (Del)"><span class="material-symbols-outlined" style="font-size:15px;">delete</span></button>
     </div>
@@ -1119,7 +1120,7 @@
 
   <!-- rows/cols popup for the grid tool -->
   <div class="sketch-grid-popup" id="sketchGridPopup">
-    <h4>Insert grid</h4>
+    <h4 id="sketchGridPopupTitle">Insert grid</h4>
     <div class="sketch-grid-field">
       <label>Rows</label>
       <input type="number" id="sketchGridRows" min="1" max="30" value="4">
@@ -4110,17 +4111,56 @@ function clearShapePreview(){
 
 /* ---- grid tool: rows/cols popup, then click-to-place, then click any
    cell (with the grid or select tool) to type directly into it ---- */
+let gridEditStrokeId = null; // set while the popup is editing an existing grid instead of inserting a new one
 function openGridPopup(){
   document.getElementById('sketchGridPopup').classList.add('active');
 }
 function closeGridPopup(){
   document.getElementById('sketchGridPopup').classList.remove('active');
+  gridEditStrokeId = null;
+  document.getElementById('sketchGridPopupTitle').textContent = 'Insert grid';
+  document.getElementById('sketchGridCreateBtn').textContent = 'Insert';
+}
+// Re-opens the popup pre-filled with an existing grid's rows/cols/header so
+// they can be changed after the grid has already been placed.
+function openEditGridPopup(){
+  const stroke = selectedStroke();
+  if(!stroke || stroke.type !== 'grid') return;
+  gridEditStrokeId = stroke.id;
+  document.getElementById('sketchGridRows').value = stroke.rows;
+  document.getElementById('sketchGridCols').value = stroke.cols;
+  document.getElementById('sketchGridHeader').checked = !!stroke.header;
+  document.getElementById('sketchGridPopupTitle').textContent = 'Edit grid';
+  document.getElementById('sketchGridCreateBtn').textContent = 'Update';
+  openGridPopup();
+}
+// Drops cells that would fall outside a shrunk grid so stray text can't end
+// up floating past the new row/col bounds.
+function pruneGridCells(cells, rows, cols){
+  const out = {};
+  Object.keys(cells || {}).forEach(key=>{
+    const [r,c] = key.split('_').map(Number);
+    if(r < rows && c < cols) out[key] = cells[key];
+  });
+  return out;
 }
 function createGridFromPopup(){
   const rows = Math.max(1, Math.min(30, parseInt(document.getElementById('sketchGridRows').value, 10) || 4));
   const cols = Math.max(1, Math.min(20, parseInt(document.getElementById('sketchGridCols').value, 10) || 4));
   const header = document.getElementById('sketchGridHeader').checked;
+  const editId = gridEditStrokeId;
   closeGridPopup();
+  if(editId){
+    // Editing an existing grid: update its rows/cols/header in place, through
+    // the same style-change path used for other property edits so undo/redo
+    // and live-sync to other viewers keep working.
+    const stroke = sketchById.get(editId);
+    if(stroke && stroke.type === 'grid' && selectedStrokeId === editId){
+      applyStyleChangeToSelection({ rows, cols, header, cells: pruneGridCells(stroke.cells, rows, cols) });
+    }
+    setSketchTool('select');
+    return;
+  }
   // Drop it centered, sized to ~70% of the page, so it's immediately visible
   // and easy to grab a handle on to resize/move afterward.
   const p0 = [0.15, 0.15], p1 = [0.85, 0.85];
@@ -4226,6 +4266,7 @@ function positionFloatToolbar(stroke){
   bar.style.top = Math.max(4, ty) + 'px';
   bar.style.transform = 'translate(-50%, 0)';
   bar.classList.add('active');
+  document.getElementById('sketchEditGridBtn').style.display = (stroke.type === 'grid') ? 'flex' : 'none';
 }
 function hitTestHandle(pt){
   const stroke = selectedStroke();
@@ -4676,6 +4717,7 @@ document.getElementById('sketchEllipseBtn').addEventListener('click', ()=> setSk
 document.getElementById('sketchSelectBtn').addEventListener('click', ()=> setSketchTool('select'));
 document.getElementById('sketchTextBtn').addEventListener('click', ()=> setSketchTool('text'));
 document.getElementById('sketchGridBtn').addEventListener('click', ()=>{ setSketchTool('grid'); openGridPopup(); });
+document.getElementById('sketchEditGridBtn').addEventListener('click', openEditGridPopup);
 document.getElementById('sketchGridCancelBtn').addEventListener('click', ()=>{ closeGridPopup(); setSketchTool('pen'); });
 document.getElementById('sketchGridCreateBtn').addEventListener('click', createGridFromPopup);
 document.getElementById('sketchUndoBtn').addEventListener('click', undoLastAction);

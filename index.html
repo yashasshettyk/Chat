@@ -531,13 +531,13 @@
   .progress-label{ text-transform:uppercase; font-size:10.5px; opacity:0.8; display:flex; align-items:center; gap:4px; }
   .progress-label .material-symbols-outlined{ font-size:12px; color:var(--progress-glow); }
   .progress-pct{ font-weight:700; color:var(--progress-glow); text-shadow:0 0 8px var(--progress-glow); }
-  .progress-bar-track{ height:5px; background:var(--border); border-radius:3px; margin-top:5px; overflow:hidden; position:relative; }
-  .progress-bar-fill{ position:relative; height:100%; border-radius:3px; background:linear-gradient(90deg, var(--progress-glow), var(--progress-glow-2)); width:0%; transition:width .18s cubic-bezier(.2,.8,.2,1); box-shadow:0 0 9px 1px var(--progress-glow); overflow:hidden; }
+  .progress-bar-track{ height:7px; background:rgba(120,120,145,0.2); border:1px solid var(--border); border-radius:4px; margin-top:6px; overflow:hidden; position:relative; box-shadow:inset 0 1px 3px rgba(0,0,0,0.16); }
+  .progress-bar-fill{ position:relative; height:100%; border-radius:4px; background:linear-gradient(90deg, var(--progress-glow), var(--progress-glow-2)); width:0%; min-width:0; transition:width .18s cubic-bezier(.2,.8,.2,1); box-shadow:0 0 10px 2px var(--progress-glow), inset 0 1px 0 rgba(255,255,255,0.4); overflow:hidden; }
   /* a bright comet-head sweeps across the filled portion for a premium "in motion" feel */
   .progress-bar-fill::after{ content:''; position:absolute; inset:0; width:40%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.85) 50%, transparent); animation:progressComet 1s linear infinite; }
   @keyframes progressComet{ 0%{ transform:translateX(-120%); } 100%{ transform:translateX(280%); } }
   .msg.me .progress-text{ color:var(--bubble-me-text); opacity:0.85; }
-  .msg.me .progress-bar-track{ background:rgba(0,0,0,0.24); }
+  .msg.me .progress-bar-track{ background:rgba(0,0,0,0.32); border-color:rgba(255,255,255,0.16); }
   .msg.paused .progress-box{ --progress-glow: var(--danger); --progress-glow-2: var(--danger); opacity:0.6; }
   .msg.paused .progress-box::before,
   .msg.paused .spiral-ring,
@@ -1121,6 +1121,16 @@
   <div class="sheet-handle"></div>
   <h3>Join request</h3>
   <p class="sheet-sub"><span class="joinreq-name" id="joinReqName">Someone</span> wants to join this room.</p>
+  <!-- Only shown when there's already a conversation to hand them — see
+       maybeShowNextJoinRequest(). Off by default: sharing what's already
+       been said is the host's call to make each time, not a default. -->
+  <div class="field" id="joinReqHistoryField" style="display:none; margin-top:2px;">
+    <label style="display:flex; align-items:center; justify-content:space-between; text-transform:none; font-weight:500; font-size:13.5px; color:var(--text);">
+      <span>Share earlier chat history</span>
+      <input type="checkbox" id="joinReqShareHistory" style="width:18px;height:18px;accent-color:var(--accent);">
+    </label>
+    <p class="hint" id="joinReqHistoryHint">They'll get the messages sent before they joined.</p>
+  </div>
   <div class="row" style="margin-top:8px;">
     <button class="btn btn-primary" id="joinReqAllow" style="flex:1;">Allow</button>
     <button class="btn btn-ghost" id="joinReqReject" style="flex:1; margin-top:0; color:var(--danger); border-color:var(--danger);">Reject</button>
@@ -1636,6 +1646,7 @@ let secVisible = false;
 let reconnectAttempts = 0;
 let reconnectTimer = null;
 let incomingFiles = new Map();
+let incomingHistory = new Map(); // joiner only: id -> {chunks, total, received} while a shared chat-history payload streams in
 let pendingLeaves = new Map();
 let awayMembers = new Set(); // host: names currently disconnected but still inside the 8s grace window; joiners: synced from roster
 let messageElements = new Map();
@@ -1945,6 +1956,24 @@ function addMessage({who, text, mine, system, ts, image, file, id, replyTo, ment
   return el;
 }
 
+/* ---------------- receiving shared chat history (joiner only) ----------------
+   Called once a chunked 'chat-history-chunk' stream (see sendChatHistoryTo,
+   near the join-approval code) has fully reassembled. Replays each earlier
+   message through the normal addMessage() path, in order, so it renders
+   identically to a live message — then reapplies whatever reactions it
+   had, and drops one small system note marking where the backlog ends. */
+function applyIncomingChatHistory(list){
+  if(!Array.isArray(list) || !list.length) return;
+  addMessage({system:true, text: `Showing ${list.length} earlier message${list.length===1?'':'s'}`});
+  list.forEach(m=>{
+    if(!m || !m.id) return;
+    addMessage({who:m.by, text:m.text, mine: m.by === state.myName, ts:m.ts, id:m.id, replyTo:m.replyTo, mentions:m.mentions});
+    if(m.reactions){ Object.entries(m.reactions).forEach(([name, emoji])=> applyReaction(m.id, name, emoji)); }
+  });
+  addMessage({system:true, text:'You\u2019re all caught up'});
+  scrollMessagesToBottom();
+}
+
 /* ---------------- single-emoji messages (WhatsApp-style) ----------------
    A message that's nothing but one emoji (optionally a ZWJ sequence, skin
    tone modifier, flag, or keycap like 1️⃣) renders bubble-less and big,
@@ -2018,6 +2047,7 @@ function removeMessageEl(msgId, announce){
   setTimeout(()=> el.remove(), 180);
   messageElements.delete(msgId);
   msgReactions.delete(msgId);
+  unlogChatHistory(msgId);
 }
 
 document.getElementById('msgDeleteForMe').addEventListener('click', ()=>{
@@ -2045,6 +2075,27 @@ document.getElementById('msgDeleteForEveryone').addEventListener('click', async 
    on screen, or the first time it scrolls into view otherwise). */
 const REACTION_EMOJIS = ['😂','😢','😨','😕','❤️','💯'];
 let msgReactions = new Map();   // msgId -> { name: emoji }
+
+/* ---------------- chat history log (host only) ----------------
+   A lightweight, host-side record of the text (incl. single-emoji)
+   messages exchanged in the room. Its only job is letting the host
+   optionally back-fill a newly-approved joiner with the conversation that
+   happened before they arrived (see the "Share earlier chat history"
+   checkbox on the join-request sheet, and sendChatHistoryTo() below).
+   Deliberately scoped to text — not photos/files/system notices — so the
+   payload stays small and we never re-send large media that already
+   finished transferring to whoever was around for it. */
+let chatHistoryLog = [];
+function logChatHistory(entry){
+  if(!state.isHost) return;
+  chatHistoryLog.push(entry);
+  if(chatHistoryLog.length > 500) chatHistoryLog.shift(); // keep it bounded for very long-running rooms
+}
+function unlogChatHistory(msgId){
+  if(!state.isHost) return;
+  const i = chatHistoryLog.findIndex(m => m.id === msgId);
+  if(i !== -1) chatHistoryLog.splice(i, 1);
+}
 let activeReactionPicker = null;
 
 function showReactionPicker(msgId, el){
@@ -2535,6 +2586,17 @@ function maybeShowNextJoinRequest(){
   if(!joinReqQueue.length) return;
   const {connId, name} = joinReqQueue[0];
   document.getElementById('joinReqName').textContent = name;
+  const historyField = document.getElementById('joinReqHistoryField');
+  const historyCheckbox = document.getElementById('joinReqShareHistory');
+  const count = chatHistoryLog.length;
+  if(count > 0){
+    historyField.style.display = '';
+    historyCheckbox.checked = false; // sharing what's already been said is an explicit, per-request choice
+    document.getElementById('joinReqHistoryHint').textContent =
+      `They'll get the ${count} message${count===1?'':'s'} sent before they joined.`;
+  } else {
+    historyField.style.display = 'none';
+  }
   openSheet('joinReqSheet');
   const allowBtn = document.getElementById('joinReqAllow');
   const rejectBtn = document.getElementById('joinReqReject');
@@ -2549,6 +2611,8 @@ async function resolveJoinRequest(connId, allowed){
   // the connId the queue entry currently holds, not the one captured in
   // the button's onclick closure.
   connId = (req && req.connId) || connId;
+  const historyCheckbox = document.getElementById('joinReqShareHistory');
+  const shareHistory = allowed && historyCheckbox && historyCheckbox.style.display !== 'none' && historyCheckbox.checked;
   closeSheets();
   const entry = state.conns.get(connId);
   if(entry && entry.conn.open){
@@ -2563,11 +2627,39 @@ async function resolveJoinRequest(connId, allowed){
     await broadcastRoster();
     syncMicToRoster();
     if(document.getElementById('chatWrap').classList.contains('active') === false) enterChatUI();
+    if(shareHistory) await sendChatHistoryTo(connId);
   } else if(!allowed && entry){
     setTimeout(()=>{ try{ entry.conn.close(); }catch(e){} }, 150);
     state.conns.delete(connId);
   }
   setTimeout(maybeShowNextJoinRequest, 250);
+}
+/* ---------------- sharing chat history with a newly-approved joiner ----------------
+   Sent as its own chunked, encrypted stream — mirroring the file-transfer
+   chunking used for photos/files below — rather than one giant message, so
+   a long-running room's backlog can't stall or trip a data-channel size
+   limit. Goes only to the one connection that was just approved; it never
+   touches anyone already in the room. */
+async function sendChatHistoryTo(connId){
+  const entry = state.conns.get(connId);
+  if(!entry || !entry.conn.open || !chatHistoryLog.length) return;
+  // Snapshot each message with its *current* reactions, so the new
+  // joiner sees the conversation exactly as it stands right now, not as
+  // it stood when each message first arrived.
+  const snapshot = chatHistoryLog.map(m => ({
+    id: m.id, by: m.by, text: m.text, ts: m.ts, replyTo: m.replyTo, mentions: m.mentions,
+    reactions: msgReactions.get(m.id) || undefined
+  }));
+  const json = JSON.stringify(snapshot);
+  const id = randomCode(10);
+  const total = Math.max(1, Math.ceil(json.length / CHUNK_SIZE));
+  for(let i=0; i<total; i++){
+    if(!entry.conn.open) return; // they dropped mid-transfer — just stop, live chat still works
+    const chunk = json.slice(i*CHUNK_SIZE, (i+1)*CHUNK_SIZE);
+    const payload = await encryptObj(state.key, {type:'chat-history-chunk', id, seq:i, total, data:chunk});
+    entry.conn.send(payload);
+    if(i % 3 === 2) await new Promise(r=> setTimeout(r, 0));
+  }
 }
 
 /* ---------------- handling incoming data ---------------- */
@@ -2606,12 +2698,23 @@ async function handleIncoming(raw, fromConnId){
   else if(obj.type === 'join-rejected' && !state.isHost){
     onJoinRejected();
   }
+  else if(obj.type === 'chat-history-chunk' && !state.isHost){
+    let buf = incomingHistory.get(obj.id);
+    if(!buf){ buf = { chunks:new Array(obj.total), total:obj.total, received:0 }; incomingHistory.set(obj.id, buf); }
+    if(buf.chunks[obj.seq] === undefined){ buf.chunks[obj.seq] = obj.data; buf.received++; }
+    if(buf.received === buf.total){
+      incomingHistory.delete(obj.id);
+      try{ applyIncomingChatHistory(JSON.parse(buf.chunks.join(''))); }
+      catch(e){ /* malformed/partial payload — just skip it, live chat still works fine */ }
+    }
+  }
   else if(obj.type === 'kicked' && !state.isHost){
     onKicked();
   }
   else if(obj.type === 'chat'){
     hideTypingIndicator(obj.name);
     addMessage({who: obj.name, text: obj.text, mine:false, ts: obj.ts, id: obj.id, replyTo: obj.replyTo, mentions: obj.mentions});
+    logChatHistory({id: obj.id, by: obj.name, text: obj.text, ts: obj.ts, replyTo: obj.replyTo, mentions: obj.mentions});
     if(obj.mentions && obj.mentions.includes(state.myName)) playMentionTone();
     if(state.isHost){ await relayToOthers(fromConnId, raw); }
   }
@@ -3243,6 +3346,7 @@ async function sendMessage(){
   clearReplyContext();
   const mentions = detectMentions(text);
   addMessage({who:state.myName, text, mine:true, ts, id, replyTo, mentions});
+  logChatHistory({id, by: state.myName, text, ts, replyTo, mentions});
 
   const payload = await encryptObj(state.key, {type:'chat', name: state.myName, text, ts, id, replyTo, mentions});
   sendPayloadToPeers(payload);

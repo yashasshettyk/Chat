@@ -488,38 +488,17 @@
   @keyframes nebulaSpin{ to{ transform:rotate(360deg); } }
 
   /* the centrepiece: eight little crystal tiles ringed around the file
-     glyph, sitting still in place. A slow brightness wave ripples
-     through them one by one — sending sweeps outward from the file,
-     receiving sweeps inward toward it — without any tile actually
-     moving. */
+     glyph, sitting still in place. The wire mesh behind it ripples like
+     a wrapped wave — the lines themselves bend and roll continuously,
+     via an animated SVG displacement filter, rather than a highlight
+     sweeping over static lines. */
   .progress-icon-wrap{ position:relative; width:60px; height:60px; display:flex; align-items:center; justify-content:center; z-index:1; }
   .chunk-grid{ position:absolute; inset:0; width:100%; height:100%; z-index:0; overflow:visible; }
-  .wire-line{ fill:none; stroke:rgba(255,255,255,0.16); stroke-width:1; vector-effect:non-scaling-stroke; }
-  /* a single soft band of light glides smoothly across the whole mesh —
-     a real wave, not lines blinking on one at a time. Screen-blending it
-     over the dim static grid makes whatever it passes over glow, then
-     fade, in one continuous motion. */
-  .chunk-wave{
-    position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none;
-    background:linear-gradient(115deg,
-      transparent 0%, transparent 32%,
-      rgba(255,255,255,0.55) 46%,
-      rgba(255,255,255,0.9) 50%,
-      rgba(255,255,255,0.55) 54%,
-      transparent 68%, transparent 100%);
-    background-size:280% 280%;
-    mix-blend-mode:screen;
-    filter:blur(0.3px);
-    animation:chunkWaveSweep 3.2s ease-in-out infinite;
-  }
-  /* sending: the wave glides outward through the mesh. */
-  @keyframes chunkWaveSweep{
-    0%   { background-position:135% 135%; }
-    100% { background-position:-35% -35%; }
-  }
-  /* receiving: same wave, reversed, so it reads as gliding inward. */
-  .msg.them .chunk-wave{ animation-direction:reverse; }
+  .wire-line{ fill:none; stroke:rgba(255,255,255,0.28); stroke-width:1; vector-effect:non-scaling-stroke; }
+  /* receiving: same ripple, just rolling the other way. */
+  .msg.them .chunk-grid{ transform:scaleX(-1); }
   /* soft breathing light behind the glyph, timed with its own pulse */
+
   .progress-icon-wrap::before{
     content:''; position:absolute; width:34px; height:34px; border-radius:50%;
     background:radial-gradient(circle, var(--progress-glow), transparent 70%);
@@ -2300,12 +2279,14 @@ function fireReactionConfetti(el, emoji){
 }
 
 /* ---------------- sending/receiving file/photo progress bubble ---------------- */
+let progressMsgCounter = 0;
 function addProgressMessage(buf){
   const box = document.getElementById('messages');
   const el = document.createElement('div');
   const mine = !!buf.mine;
   const verb = mine ? 'Sending' : 'Receiving';
   el.className = 'msg ' + (mine ? 'me' : 'them') + ' progress-msg';
+  const waveFilterId = 'chunkWave' + (progressMsgCounter++);
   el.innerHTML = `
     ${mine ? '' : `<div class="who">${escapeHtml(buf.name)}</div>`}
     ${mine ? `<button class="progress-cancel-btn" title="Cancel send" type="button">
@@ -2313,6 +2294,15 @@ function addProgressMessage(buf){
     </button>` : ''}
     <div class="progress-box">
       <svg class="chunk-grid" viewBox="0 0 184 118" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <filter id="${waveFilterId}" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" numOctaves="1" seed="4" result="wave">
+              <animate attributeName="baseFrequency" values="0.012 0.09;0.02 0.09;0.012 0.09" dur="3.6s" repeatCount="indefinite" />
+            </feTurbulence>
+            <feDisplacementMap in="SourceGraphic" in2="wave" scale="10" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+        <g filter="url(#${waveFilterId})">
         <line class="wire-line" x1="0" y1="0"     x2="184" y2="0"     />
         <line class="wire-line" x1="0" y1="14.75" x2="184" y2="14.75" />
         <line class="wire-line" x1="0" y1="29.5"  x2="184" y2="29.5"  />
@@ -2335,8 +2325,8 @@ function addProgressMessage(buf){
         <line class="wire-line" x1="153.33" y1="0" x2="153.33" y2="118" />
         <line class="wire-line" x1="168.67" y1="0" x2="168.67" y2="118" />
         <line class="wire-line" x1="184"    y1="0" x2="184"    y2="118" />
+        </g>
       </svg>
-      <div class="chunk-wave"></div>
       <div class="progress-icon-wrap">
         <span class="progress-spark"></span>
         <span class="material-symbols-outlined">${buf.isImage ? 'image' : 'description'}</span>

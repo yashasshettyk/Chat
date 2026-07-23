@@ -660,7 +660,7 @@
   .sketch-canvas-inner{ position:relative; box-shadow:0 0 0 1px rgba(255,255,255,0.08), 0 20px 60px -20px rgba(0,0,0,0.6); }
   #sketchCanvas{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:crosshair; }
   .sketch-shape-preview{ position:absolute; inset:0; pointer-events:none; }
-  .sketch-text-input{ position:absolute; z-index:8; background:transparent; border:1.5px dashed rgba(255,255,255,0.55); border-radius:4px; padding:2px 4px; outline:none; font-family:'Space Grotesk',sans-serif; min-width:40px; }
+  .sketch-text-input{ position:absolute; z-index:8; background:transparent; border:1.5px dashed rgba(255,255,255,0.55); border-radius:4px; padding:2px 4px; outline:none; font-family:'Space Grotesk',sans-serif; min-width:40px; resize:none; overflow:hidden; }
 
   /* ---------- mobile: full-screen chat, WhatsApp-style ---------- */
   @media (max-width:700px){
@@ -3618,6 +3618,60 @@ function undoMyLastStroke(){
     undoMyLastStroke();
   }
 }
+
+/* ---- text tool: a live <textarea> overlay while typing, committed to a
+   real sketch-text stroke on blur/Enter, discarded on Escape ---- */
+function openSketchTextEditor(pt){
+  const inner = document.getElementById('sketchCanvasInner');
+  const el = document.createElement('textarea');
+  el.className = 'sketch-text-input';
+  el.rows = 1;
+  el.spellcheck = false;
+  el.style.left = (pt[0] * 100) + '%';
+  el.style.top = (pt[1] * 100) + '%';
+  el.style.color = sketchColor;
+  const fontPx = sketchFontPx({size: sketchSize});
+  el.style.font = fontPx + 'px "Space Grotesk", sans-serif';
+  el.style.lineHeight = '1.25';
+  el.style.width = '40px';
+  el.style.height = Math.round(fontPx * 1.25) + 'px';
+  inner.appendChild(el);
+  sketchTextEditor = { el, p: pt, color: sketchColor, size: sketchSize };
+  const grow = ()=>{
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+    el.style.width = 'auto';
+    el.style.width = Math.max(40, el.scrollWidth + 8) + 'px';
+  };
+  el.addEventListener('input', grow);
+  el.addEventListener('blur', commitSketchText);
+  el.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape'){ e.preventDefault(); cancelSketchText(); }
+    else if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); commitSketchText(); }
+  });
+  el.focus();
+}
+function commitSketchText(){
+  if(!sketchTextEditor) return;
+  const { el, p, color, size } = sketchTextEditor;
+  sketchTextEditor = null;
+  const text = el.value.trim();
+  el.remove();
+  if(!text) return;
+  const id = state.myId + '-' + Date.now() + '-' + Math.floor(Math.random()*1e6);
+  const stroke = { id, type:'text', p, text, color, size, name: state.myName };
+  sketchStrokes.push(stroke);
+  sketchById.set(id, stroke);
+  sketchMyStrokeIds.push(id);
+  drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
+  sendSketchPayload({type:'sketch-text', id, p, text, color, size, name: state.myName});
+}
+function cancelSketchText(){
+  if(!sketchTextEditor) return;
+  const { el } = sketchTextEditor;
+  sketchTextEditor = null;
+  el.remove();
+}
 function updateShapePreview(p0, p1){
   const svg = document.getElementById('sketchShapePreview');
   const [w,h] = sketchCssSize();
@@ -3832,6 +3886,12 @@ function sketchPointerDown(e){
     return;
   }
 
+  if(sketchTool === 'text'){
+    commitSketchText();
+    openSketchTextEditor(pt);
+    return;
+  }
+
   if(sketchTool !== 'pen'){
     shapeStart = pt;
     updateShapePreview(pt, pt);
@@ -3842,6 +3902,7 @@ function sketchPointerDown(e){
   localStroke = { id, type:'freehand', color, size, erase: sketchEraser, name: state.myName, pts:[pt], done:false };
   sketchStrokes.push(localStroke);
   sketchById.set(id, localStroke);
+  sketchMyStrokeIds.push(id);
   drawStrokeFull(localStroke, sketchCtx(), ...sketchCssSize());
   sketchPendingPts = [];
   sendSketchPayload({type:'sketch-start', id, color, size, erase: sketchEraser, name: state.myName, x: pt[0], y: pt[1]});
@@ -3901,6 +3962,7 @@ function sketchPointerUp(e){
     const stroke = { id, type:'shape', shape: sketchTool, p0: shapeStart, p1: end, color: sketchColor, size: sketchSize, fill: sketchFill, name: state.myName };
     sketchStrokes.push(stroke);
     sketchById.set(id, stroke);
+    sketchMyStrokeIds.push(id);
     drawStrokeFull(stroke, sketchCtx(), ...sketchCssSize());
     sendSketchPayload({type:'sketch-shape', id, shape: sketchTool, p0: shapeStart, p1: end, color: sketchColor, size: sketchSize, fill: sketchFill, name: state.myName});
     shapeStart = null;
@@ -3966,17 +4028,21 @@ function setSketchTool(tool){
   shapeStart = null;
   clearShapePreview();
   if(tool !== 'select') clearSketchSelection();
+  if(tool !== 'text') commitSketchText();
   document.getElementById('sketchPenBtn').classList.toggle('active', tool === 'pen');
   document.getElementById('sketchLineBtn').classList.toggle('active', tool === 'line');
   document.getElementById('sketchRectBtn').classList.toggle('active', tool === 'rect');
   document.getElementById('sketchEllipseBtn').classList.toggle('active', tool === 'ellipse');
   document.getElementById('sketchSelectBtn').classList.toggle('active', tool === 'select');
+  document.getElementById('sketchTextBtn').classList.toggle('active', tool === 'text');
 }
 document.getElementById('sketchPenBtn').addEventListener('click', ()=> setSketchTool('pen'));
 document.getElementById('sketchLineBtn').addEventListener('click', ()=> setSketchTool('line'));
 document.getElementById('sketchRectBtn').addEventListener('click', ()=> setSketchTool('rect'));
 document.getElementById('sketchEllipseBtn').addEventListener('click', ()=> setSketchTool('ellipse'));
 document.getElementById('sketchSelectBtn').addEventListener('click', ()=> setSketchTool('select'));
+document.getElementById('sketchTextBtn').addEventListener('click', ()=> setSketchTool('text'));
+document.getElementById('sketchUndoBtn').addEventListener('click', undoMyLastStroke);
 document.getElementById('sketchFillBtn').addEventListener('click', (e)=>{
   sketchFill = !sketchFill;
   e.currentTarget.classList.toggle('active', sketchFill);
@@ -4037,6 +4103,7 @@ function closeSketchModal(){
   document.getElementById('sketchModal').classList.remove('active');
   shapeStart = null;
   clearSketchSelection();
+  commitSketchText();
 }
 document.getElementById('sketchBtn').addEventListener('click', openSketchModal);
 document.getElementById('sketchCloseBtn').addEventListener('click', closeSketchModal);

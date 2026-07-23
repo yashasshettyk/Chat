@@ -3526,6 +3526,10 @@ let selectDragOrigin = null;      // normalized pointer position when the drag s
 let selectDragSnapshot = null;    // deep-copied geometry of the selected stroke at drag start
 let selectDragChanged = false;    // did the drag actually move anything (skip no-op history)
 let selectDragAngleOffset = 0;    // for rotation drags: angle(pointer) - stroke.rotation at drag start
+let pendingGridTap = false;       // true right after touching an already-selected grid — resolved
+                                   // to either "edit this cell" (no movement) or "move the grid"
+                                   // (movement past GRID_TAP_THRESHOLD_PX) on the next move/up
+const GRID_TAP_THRESHOLD_PX = 6;
 
 function sketchModalOpen(){ return document.getElementById('sketchModal').classList.contains('active'); }
 function sketchCanvasEl(){ return document.getElementById('sketchCanvas'); }
@@ -4449,22 +4453,21 @@ function sketchPointerDown(e){
       return;
     }
     const stroke = selectedStroke();
-    if(stroke && stroke.type === 'grid' && pointInStrokeBBox(pt, stroke)){
-      // clicking inside an already-selected grid edits the cell under the
-      // pointer instead of starting a move drag
-      const cell = gridCellAt(stroke, pt);
-      if(cell){ openGridCellEditor(stroke, cell[0], cell[1]); return; }
-    }
     if(stroke && pointInStrokeBBox(pt, stroke)){
       selectDragMode = 'move';
       selectDragOrigin = pt;
       selectDragSnapshot = deepCopyGeometry(stroke);
       selectDragChanged = false;
+      // A grid is ambiguous: touching it could mean "drag to move" or "tap
+      // a cell to type in it". Don't commit to either yet — wait to see if
+      // the pointer actually travels before deciding (see pointermove/up).
+      pendingGridTap = stroke.type === 'grid';
       return;
     }
     const hit = findStrokeAt(pt);
     selectedStrokeId = hit ? hit.id : null;
     selectDragMode = null; selectDragOrigin = null; selectDragSnapshot = null;
+    pendingGridTap = false;
     renderSelectionOverlay();
     return;
   }
@@ -4504,7 +4507,14 @@ function sketchPointerMove(e){
   if(sketchTool === 'select'){
     if(!selectDragMode) return;
     e.preventDefault();
-    applySelectDrag(getNormPoint(e));
+    const pt = getNormPoint(e);
+    if(pendingGridTap){
+      const [w,h] = sketchCssSize();
+      const distPx = Math.hypot((pt[0]-selectDragOrigin[0])*w, (pt[1]-selectDragOrigin[1])*h);
+      if(distPx < GRID_TAP_THRESHOLD_PX) return; // still could just be a tap — hold off moving
+      pendingGridTap = false; // travelled far enough — this is a real drag now
+    }
+    applySelectDrag(pt);
     return;
   }
 
@@ -4536,6 +4546,21 @@ function sketchPointerUp(e){
   sketchActivePointerId = null;
 
   if(sketchTool === 'select'){
+    if(selectDragMode === 'move' && pendingGridTap){
+      // Pointer never travelled far enough to count as a drag — treat it
+      // as a tap on a cell instead of a move.
+      pendingGridTap = false;
+      const stroke = selectedStroke();
+      if(stroke && stroke.type === 'grid'){
+        const pt = getNormPoint(e);
+        const cell = gridCellAt(stroke, pt);
+        if(cell) openGridCellEditor(stroke, cell[0], cell[1]);
+      }
+      selectDragMode = null;
+      selectDragOrigin = null;
+      selectDragSnapshot = null;
+      return;
+    }
     if(selectDragMode){
       if(selectDragChanged){
         const stroke = selectedStroke();
@@ -4548,6 +4573,7 @@ function sketchPointerUp(e){
     selectDragMode = null;
     selectDragOrigin = null;
     selectDragSnapshot = null;
+    pendingGridTap = false;
     return;
   }
 

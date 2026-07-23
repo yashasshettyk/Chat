@@ -499,9 +499,10 @@
      into place — the file assembling itself piece by piece. */
   .progress-icon-wrap{ position:relative; width:60px; height:60px; display:flex; align-items:center; justify-content:center; z-index:1; }
   .chunk-grid{ position:absolute; inset:0; width:60px; height:60px; z-index:1; }
-  .chunk-piece{ position:absolute; width:11px; height:11px; border-radius:3px; opacity:0;
-    background:linear-gradient(135deg, var(--progress-glow), var(--progress-glow-2));
-    box-shadow:0 0 6px 1px var(--progress-glow); }
+  .chunk-piece{ position:absolute; width:12px; height:12px; opacity:0;
+    background:linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(203,213,225,0.55) 55%, rgba(148,163,184,0.4) 100%);
+    border:1px solid rgba(255,255,255,0.65);
+    clip-path:polygon(50% 0%, 100% 38%, 80% 100%, 20% 100%, 0% 38%); }
   .chunk-piece:nth-child(1){ left:2px;  top:2px;  --dx:-1; --dy:-1; }
   .chunk-piece:nth-child(2){ left:24px; top:2px;  --dx:0;  --dy:-1; }
   .chunk-piece:nth-child(3){ left:46px; top:2px;  --dx:1;  --dy:-1; }
@@ -1153,7 +1154,7 @@
   <h3>Join request</h3>
   <p class="sheet-sub"><span class="joinreq-name" id="joinReqName">Someone</span> wants to join this room.</p>
   <!-- Only shown when there's already a conversation to hand them — see
-       maybeShowNextJoinRequest(). Off by default: sharing what's already
+       showJoinRequestPrompt(). Off by default: sharing what's already
        been said is the host's call to make each time, not a default. -->
   <div class="field" id="joinReqHistoryField" style="display:none; margin-top:2px;">
     <label style="display:flex; align-items:center; justify-content:space-between; text-transform:none; font-weight:500; font-size:13.5px; color:var(--text);">
@@ -1165,6 +1166,25 @@
   <div class="row" style="margin-top:8px;">
     <button class="btn btn-primary" id="joinReqAllow" style="flex:1;">Allow</button>
     <button class="btn btn-ghost" id="joinReqReject" style="flex:1; margin-top:0; color:var(--danger); border-color:var(--danger);">Reject</button>
+  </div>
+</div>
+
+<!-- Reconnect history-share prompt (host only) — a known member is let
+     back in automatically, but sharing what was said while they were
+     gone is still the host's call each time, same as a fresh join. -->
+<div class="sheet" id="reconnectShareSheet">
+  <div class="sheet-handle"></div>
+  <h3>Welcome back</h3>
+  <p class="sheet-sub"><span class="joinreq-name" id="reconnectShareName">Someone</span> reconnected to the room.</p>
+  <div class="field" id="reconnectShareField" style="margin-top:2px;">
+    <label style="display:flex; align-items:center; justify-content:space-between; text-transform:none; font-weight:500; font-size:13.5px; color:var(--text);">
+      <span>Share chat while they were away</span>
+      <input type="checkbox" id="reconnectShareHistory" style="width:18px;height:18px;accent-color:var(--accent);">
+    </label>
+    <p class="hint" id="reconnectShareHint">They'll get the messages sent since they left.</p>
+  </div>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn btn-primary" id="reconnectShareOk" style="flex:1;">Continue</button>
   </div>
 </div>
 
@@ -2592,7 +2612,11 @@ function sendPayloadToPeers(payload){
 }
 
 /* ---------------- join approval (host only) ---------------- */
-let joinReqQueue = []; // {connId, name}
+// One serial queue drives both "wants to join" and "reconnected, share
+// the gap?" prompts, since they use the same single-sheet slot and
+// should never stack or race each other. kind distinguishes which
+// sheet + resolver a queued entry maps to.
+let hostPromptQueue = []; // {kind:'join'|'reconnect', connId, name}
 // Names approved at least once this session. Unlike pendingLeaves (an
 // 8s grace window), this never expires on its own — someone who was let
 // in stays "known" for as long as the room exists, even if a later
@@ -2606,15 +2630,26 @@ function queueJoinRequest(connId, name){
   // same person before the first is resolved — that used to stack a
   // second "wants to join" prompt for the same name. Just point the
   // newer connection at the same pending request instead of asking twice.
-  const existing = joinReqQueue.find(r => r.name === name);
+  const existing = hostPromptQueue.find(r => r.kind === 'join' && r.name === name);
   if(existing){ existing.connId = connId; return; }
-  joinReqQueue.push({connId, name});
-  maybeShowNextJoinRequest();
+  hostPromptQueue.push({kind:'join', connId, name});
+  maybeShowNextHostPrompt();
 }
-function maybeShowNextJoinRequest(){
+function queueReconnectShare(connId, name){
+  const existing = hostPromptQueue.find(r => r.kind === 'reconnect' && r.name === name);
+  if(existing){ existing.connId = connId; return; }
+  hostPromptQueue.push({kind:'reconnect', connId, name});
+  maybeShowNextHostPrompt();
+}
+function maybeShowNextHostPrompt(){
   if(document.getElementById('joinReqSheet').classList.contains('active')) return;
-  if(!joinReqQueue.length) return;
-  const {connId, name} = joinReqQueue[0];
+  if(document.getElementById('reconnectShareSheet').classList.contains('active')) return;
+  if(!hostPromptQueue.length) return;
+  const item = hostPromptQueue[0];
+  if(item.kind === 'reconnect') showReconnectSharePrompt(item);
+  else showJoinRequestPrompt(item);
+}
+function showJoinRequestPrompt({connId, name}){
   document.getElementById('joinReqName').textContent = name;
   const historyField = document.getElementById('joinReqHistoryField');
   const historyCheckbox = document.getElementById('joinReqShareHistory');
@@ -2634,7 +2669,7 @@ function maybeShowNextJoinRequest(){
   rejectBtn.onclick = ()=>{ resolveJoinRequest(connId, false); };
 }
 async function resolveJoinRequest(connId, allowed){
-  const req = joinReqQueue.shift();
+  const req = hostPromptQueue.shift();
   const name = (req && req.name) || 'Someone';
   // The request may have been repointed at a newer connection since it
   // was queued (see queueJoinRequest above), so always resolve against
@@ -2662,7 +2697,32 @@ async function resolveJoinRequest(connId, allowed){
     setTimeout(()=>{ try{ entry.conn.close(); }catch(e){} }, 150);
     state.conns.delete(connId);
   }
-  setTimeout(maybeShowNextJoinRequest, 250);
+  setTimeout(maybeShowNextHostPrompt, 250);
+}
+/* A member who already belongs to the room (approved before, or still
+   inside the reconnect grace window) is let back in immediately without
+   re-approval — but whether they get caught up on what was said while
+   they were gone is still asked fresh each time, same principle as a
+   first-time join. Only asked when there's actually something to catch
+   up on. */
+function showReconnectSharePrompt({name}){
+  document.getElementById('reconnectShareName').textContent = name;
+  const checkbox = document.getElementById('reconnectShareHistory');
+  checkbox.checked = false; // explicit per-request choice, not a default
+  document.getElementById('reconnectShareHint').textContent =
+    `They'll get the messages sent while ${name} was away.`;
+  openSheet('reconnectShareSheet');
+  document.getElementById('reconnectShareOk').onclick = ()=>{ resolveReconnectShare(); };
+}
+async function resolveReconnectShare(){
+  const req = hostPromptQueue.shift();
+  closeSheets();
+  const connId = req && req.connId;
+  const checkbox = document.getElementById('reconnectShareHistory');
+  const share = checkbox && checkbox.checked;
+  const entry = connId && state.conns.get(connId);
+  if(share && entry && entry.conn.open) await sendChatHistoryTo(connId);
+  setTimeout(maybeShowNextHostPrompt, 250);
 }
 /* ---------------- sharing chat history with a newly-approved joiner ----------------
    Sent as its own chunked, encrypted stream — mirroring the file-transfer
@@ -2706,13 +2766,14 @@ async function handleIncoming(raw, fromConnId){
 
   if(obj.type === 'join' && state.isHost){
     const entry = state.conns.get(fromConnId);
-    const reconnecting = pendingLeaves.has(obj.name) || approvedNames.has(obj.name);
+    const wasPendingLeave = pendingLeaves.has(obj.name);
+    const reconnecting = wasPendingLeave || approvedNames.has(obj.name);
     if(state.requireApproval && !reconnecting){
       if(entry) entry.pendingName = obj.name;
       queueJoinRequest(fromConnId, obj.name);
       return;
     }
-    if(pendingLeaves.has(obj.name)){ clearTimeout(pendingLeaves.get(obj.name)); pendingLeaves.delete(obj.name); }
+    if(wasPendingLeave){ clearTimeout(pendingLeaves.get(obj.name)); pendingLeaves.delete(obj.name); }
     awayMembers.delete(obj.name);
     const payload = await encryptObj(state.key, {type:'join-accepted'});
     if(entry && entry.conn.open){ entry.conn.send(payload); await sendSketchSyncTo(fromConnId); }
@@ -2721,6 +2782,15 @@ async function handleIncoming(raw, fromConnId){
     addMessage({system:true, text: obj.name + (reconnecting ? ' reconnected' : ' joined the room')});
     await broadcastRoster();
     syncMicToRoster();
+    // A brief same-session connection blip (still inside the pendingLeaves
+    // grace window) doesn't need a fresh prompt — that's the same visit,
+    // just a flaky link. A real rejoin after actually leaving (grace
+    // window already expired, so wasPendingLeave is false but they're
+    // still a known name) is treated like a fresh return: ask the host
+    // whether to send them what they missed, same as a first-time join.
+    if(reconnecting && !wasPendingLeave && chatHistoryLog.length > 0){
+      queueReconnectShare(fromConnId, obj.name);
+    }
   }
   else if(obj.type === 'join-accepted' && !state.isHost){
     onJoinAccepted();
@@ -3149,7 +3219,7 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
       const wasMember = state.members.has(connId);
       const memberName = state.members.get(connId);
       state.conns.delete(connId);
-      joinReqQueue = joinReqQueue.filter(r => r.connId !== connId);
+      hostPromptQueue = hostPromptQueue.filter(r => r.connId !== connId);
       if(memberName) hideTypingIndicator(memberName);
       if(wasMember){
         awayMembers.add(memberName);
